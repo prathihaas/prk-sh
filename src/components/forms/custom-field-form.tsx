@@ -1,0 +1,272 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+import {
+  customFieldSchema,
+  type CustomFieldFormValues,
+} from "@/lib/validators/custom-field";
+import { createCustomField, updateCustomField } from "@/lib/queries/custom-fields";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { FormCard } from "@/components/shared/form-card";
+
+const TABLE_OPTIONS = [
+  { value: "employees", label: "Employees" },
+  { value: "expenses", label: "Expenses" },
+  { value: "invoices", label: "Invoices" },
+  { value: "cashbook_transactions", label: "Cashbook Transactions" },
+];
+
+const FIELD_TYPES = [
+  { value: "text", label: "Text" },
+  { value: "number", label: "Number" },
+  { value: "date", label: "Date" },
+  { value: "boolean", label: "Boolean" },
+  { value: "select", label: "Select (Dropdown)" },
+];
+
+interface CustomFieldFormProps {
+  companyId: string;
+  field?: Record<string, unknown>;
+}
+
+export function CustomFieldForm({ companyId, field }: CustomFieldFormProps) {
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEditing = !!field;
+
+  const form = useForm<CustomFieldFormValues>({
+    resolver: zodResolver(customFieldSchema),
+    defaultValues: {
+      table_name: (field?.table_name as string) || "",
+      field_name: (field?.field_name as string) || "",
+      field_type: (field?.field_type as string) || "",
+      field_options: field?.field_options
+        ? (field.field_options as string[]).join(", ")
+        : "",
+      is_required: (field?.is_required as boolean) ?? false,
+      display_order: (field?.display_order as number) ?? 0,
+    },
+  });
+
+  const watchFieldType = form.watch("field_type");
+
+  async function onSubmit(values: CustomFieldFormValues) {
+    setIsSubmitting(true);
+    try {
+      const result = isEditing
+        ? await updateCustomField(field!.id as string, values)
+        : await createCustomField({
+            ...values,
+            company_id: companyId,
+          });
+
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(
+          isEditing ? "Custom field updated" : "Custom field created"
+        );
+        router.push("/settings/custom-fields");
+      }
+    } catch {
+      toast.error("An unexpected error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <FormCard
+      title={isEditing ? "Edit Custom Field" : "New Custom Field"}
+      description={
+        isEditing
+          ? "Update custom field definition"
+          : "Define a new custom field for a table"
+      }
+    >
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="table_name"
+              render={({ field: formField }) => (
+                <FormItem>
+                  <FormLabel>Table *</FormLabel>
+                  <Select
+                    onValueChange={formField.onChange}
+                    value={formField.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select table" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {TABLE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="field_name"
+              render={({ field: formField }) => (
+                <FormItem>
+                  <FormLabel>Field Name *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. Department Code" {...formField} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="field_type"
+              render={({ field: formField }) => (
+                <FormItem>
+                  <FormLabel>Field Type *</FormLabel>
+                  <Select
+                    onValueChange={formField.onChange}
+                    value={formField.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {FIELD_TYPES.map((ft) => (
+                        <SelectItem key={ft.value} value={ft.value}>
+                          {ft.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="display_order"
+              render={({ field: formField }) => (
+                <FormItem>
+                  <FormLabel>Display Order *</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      {...formField}
+                      onChange={(e) =>
+                        formField.onChange(e.target.valueAsNumber)
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          {watchFieldType === "select" && (
+            <FormField
+              control={form.control}
+              name="field_options"
+              render={({ field: formField }) => (
+                <FormItem>
+                  <FormLabel>Options</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Option A, Option B, Option C"
+                      rows={3}
+                      {...formField}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Comma-separated values for the dropdown options
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+          <FormField
+            control={form.control}
+            name="is_required"
+            render={({ field: formField }) => (
+              <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Required</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    Make this field mandatory when creating records
+                  </p>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={formField.value}
+                    onCheckedChange={formField.onChange}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <div className="flex gap-4">
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : isEditing ? (
+                "Update Field"
+              ) : (
+                "Create Field"
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => router.push("/settings/custom-fields")}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </FormCard>
+  );
+}
