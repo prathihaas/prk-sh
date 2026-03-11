@@ -29,7 +29,7 @@ export default async function PurchasesDuesPage() {
   }
 
   const dues = await getDuePurchases(companyId, branchId);
-  const totalDue = dues.reduce((s, d) => s + (d.balance_due ?? 0), 0);
+  const totalDue = dues.reduce((s: number, d) => s + (d.balance_due ?? 0), 0);
 
   return (
     <div className="space-y-6">

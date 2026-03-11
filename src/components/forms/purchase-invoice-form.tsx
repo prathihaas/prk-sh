@@ -78,9 +78,9 @@ export function PurchaseInvoiceForm({
     form.setValue(`items.${index}.amount`, parseFloat(amount.toFixed(2)));
   }
 
-  const subtotal = watchItems.reduce((s, i) => s + (i.amount || 0), 0);
+  const subtotal = watchItems.reduce((s: number, i) => s + (i.amount || 0), 0);
   const totalTax = watchItems.reduce(
-    (s, i) => s + ((i.amount || 0) * (i.tax_percent || 0)) / 100,
+    (s: number, i) => s + ((i.amount || 0) * (i.tax_percent || 0)) / 100,
     0
   );
   const grandTotal = subtotal + totalTax;

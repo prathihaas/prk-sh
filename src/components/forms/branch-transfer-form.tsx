@@ -87,7 +87,7 @@ export function BranchTransferForm({
   }, [watchToCompanyId, companies, form]);
 
   const totalValue = watchItems.reduce(
-    (s, i) => s + (i.unit_value || 0) * (i.quantity || 0),
+    (s: number, i) => s + (i.unit_value || 0) * (i.quantity || 0),
     0
   );
 
