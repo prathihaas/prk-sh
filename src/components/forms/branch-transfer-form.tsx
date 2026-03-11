@@ -61,7 +61,8 @@ export function BranchTransferForm({
   const [toBranches, setToBranches] = useState<{ id: string; name: string }[]>([]);
 
   const form = useForm<BranchTransferFormValues>({
-    resolver: zodResolver(branchTransferSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(branchTransferSchema) as any,
     defaultValues: {
       transfer_type: "inter_branch",
       to_company_id: "",

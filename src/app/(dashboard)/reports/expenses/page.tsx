@@ -87,7 +87,7 @@ export default async function ExpenseReportPage({
   const categoryBreakdown = Array.from(categoryMap.values()).sort((a, b) => b.total - a.total);
 
   // Flatten for export
-  const exportData = expenses.map((exp) => ({
+  const exportData = (expenses as Record<string, unknown>[]).map((exp) => ({
     ...exp,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     category_name: ((exp as any).category as { name: string } | null)?.name || "",

@@ -45,7 +45,7 @@ export default async function UserAccessPage() {
     .order("name");
 
   // ── Load all branches for each company ───────────────────────────────
-  const companyIds = (companies || []).map((c) => c.id);
+  const companyIds = (companies || []).map((c: { id: string }) => c.id);
   const { data: allBranches } = companyIds.length > 0
     ? await supabase
         .from("branches")
@@ -216,12 +216,12 @@ export default async function UserAccessPage() {
         cashierUsers={cashierUsers}
         companies={companies || []}
         branches={allBranches || []}
-        roles={(roles || []).map((r) => ({
+        roles={(roles || []).map((r: { id: string; name: string; hierarchy_level: number }) => ({
           id: r.id,
           name: r.name,
           hierarchy_level: r.hierarchy_level,
         }))}
-        cashbooks={(cashbooks || []).map((c) => ({
+        cashbooks={(cashbooks || []).map((c: { id: string; name: string; type: string; branch_id: string | null; company_id: string }) => ({
           id: c.id,
           name: c.name,
           type: c.type,

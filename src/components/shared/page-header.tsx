@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 import { type LucideIcon, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,9 +11,10 @@ interface PageHeaderProps {
     href: string;
     icon?: LucideIcon;
   };
+  children?: React.ReactNode;
 }
 
-export function PageHeader({ title, description, action }: PageHeaderProps) {
+export function PageHeader({ title, description, action, children }: PageHeaderProps) {
   const ActionIcon = action?.icon || Plus;
 
   return (
@@ -23,14 +25,14 @@ export function PageHeader({ title, description, action }: PageHeaderProps) {
           <p className="text-sm text-muted-foreground mt-1">{description}</p>
         )}
       </div>
-      {action && (
+      {children ?? (action && (
         <Button asChild>
           <Link href={action.href}>
             <ActionIcon className="mr-2 h-4 w-4" />
             {action.label}
           </Link>
         </Button>
-      )}
+      ))}
     </div>
   );
 }

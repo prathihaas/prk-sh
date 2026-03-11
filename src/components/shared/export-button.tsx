@@ -14,8 +14,10 @@ import type { ExcelColumn } from "@/lib/utils/excel-export";
 
 interface ExportButtonProps {
   data: Record<string, unknown>[];
-  columns: ExcelColumn[];
-  filename: string;
+  columns?: ExcelColumn[];
+  filename?: string;
+  fileName?: string;
+  exportFn?: (data: Record<string, unknown>[]) => Promise<void>;
   label?: string;
   size?: "sm" | "default";
 }
@@ -24,10 +26,13 @@ export function ExportButton({
   data,
   columns,
   filename,
+  fileName,
+  exportFn,
   label = "Export",
   size = "sm",
 }: ExportButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
+  const resolvedFilename = filename ?? fileName ?? "export";
 
   async function handleExcel() {
     if (data.length === 0) {
@@ -36,8 +41,12 @@ export function ExportButton({
     }
     setIsExporting(true);
     try {
-      const { exportToExcel } = await import("@/lib/utils/excel-export");
-      await exportToExcel(data, columns, filename);
+      if (exportFn) {
+        await exportFn(data);
+      } else if (columns) {
+        const { exportToExcel } = await import("@/lib/utils/excel-export");
+        await exportToExcel(data, columns, resolvedFilename);
+      }
       toast.success(`Exported ${data.length} rows to Excel`);
     } catch (err) {
       console.error(err);
@@ -52,6 +61,7 @@ export function ExportButton({
       toast.error("No data to export");
       return;
     }
+    if (!columns) return;
     const headers = columns.map((c) => c.header);
     const rows = data.map((row) =>
       columns.map((col) => {
@@ -66,7 +76,7 @@ export function ExportButton({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${filename}.csv`;
+    a.download = `${resolvedFilename}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success(`Exported ${data.length} rows to CSV`);

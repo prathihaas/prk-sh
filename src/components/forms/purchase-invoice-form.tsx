@@ -52,7 +52,8 @@ export function PurchaseInvoiceForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<PurchaseInvoiceFormValues>({
-    resolver: zodResolver(purchaseInvoiceSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(purchaseInvoiceSchema) as any,
     defaultValues: {
       supplier_id: "",
       purchase_type: "general",

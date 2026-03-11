@@ -24,6 +24,7 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   emptyMessage?: string;
   emptyAction?: { label: string; href: string };
+  searchKey?: string;
 }
 
 export function DataTable<TData, TValue>({
