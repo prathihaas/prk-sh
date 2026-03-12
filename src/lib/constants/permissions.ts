@@ -12,6 +12,11 @@ export const PERMISSIONS = {
   CASHBOOK_REOPEN_DAY: "cashbook:reopen_day",
   CASHBOOK_APPROVE_VARIANCE: "cashbook:approve_variance",
 
+  // Customer
+  CUSTOMER_CREATE: "customer:create",
+  CUSTOMER_READ: "customer:read",
+  CUSTOMER_UPDATE: "customer:update",
+
   // Invoice
   INVOICE_CREATE: "invoice:create",
   INVOICE_READ: "invoice:read",

@@ -268,8 +268,8 @@ export async function payExpense(
     receipt_number: "PENDING",
     receipt_hash: "PENDING",
     created_by: values.paid_by,
-    source_type: "expense",
-    source_id: expenseId,
+    reference_type: "expense",
+    reference_id: expenseId,
   });
 
   if (txnError) return { error: txnError.message };

@@ -22,9 +22,9 @@ import {
   Webhook,
   UserCog,
   ShoppingCart,
-  Truck,
   Users2,
   ArrowLeftRight,
+  UserRound,
 } from "lucide-react";
 import { PERMISSIONS } from "./permissions";
 import type { NavSection } from "@/types/navigation";
@@ -82,7 +82,7 @@ export const navigationItems: NavSection[] = [
     ],
   },
   {
-    label: "Cash Management",
+    label: "Banks & Cash",
     items: [
       {
         title: "Cashbooks",
@@ -96,13 +96,8 @@ export const navigationItems: NavSection[] = [
         icon: HandCoins,
         permission: PERMISSIONS.CASHBOOK_READ,
       },
-    ],
-  },
-  {
-    label: "Bank Accounts",
-    items: [
       {
-        title: "Bank Books",
+        title: "Bank Accounts",
         href: "/banks/accounts",
         icon: Landmark,
         permission: PERMISSIONS.CASHBOOK_READ,
@@ -113,16 +108,51 @@ export const navigationItems: NavSection[] = [
         icon: BookOpen,
         permission: PERMISSIONS.CASHBOOK_READ,
       },
+      {
+        title: "Transfers",
+        href: "/transfers",
+        icon: ArrowLeftRight,
+        permission: PERMISSIONS.TRANSFER_VIEW,
+      },
     ],
   },
   {
-    label: "Invoices",
+    label: "Sales",
     items: [
       {
         title: "Invoices",
         href: "/invoices",
         icon: FileText,
         permission: PERMISSIONS.INVOICE_READ,
+      },
+      {
+        title: "Customers",
+        href: "/sales/customers",
+        icon: UserRound,
+        permission: PERMISSIONS.CUSTOMER_READ,
+      },
+    ],
+  },
+  {
+    label: "Purchases",
+    items: [
+      {
+        title: "All Purchases",
+        href: "/purchases",
+        icon: ShoppingCart,
+        permission: PERMISSIONS.PURCHASE_VIEW,
+      },
+      {
+        title: "Dues to Pay",
+        href: "/purchases/dues",
+        icon: AlertTriangle,
+        permission: PERMISSIONS.PURCHASE_VIEW,
+      },
+      {
+        title: "Suppliers",
+        href: "/purchases/suppliers",
+        icon: Users2,
+        permission: PERMISSIONS.PURCHASE_VIEW,
       },
     ],
   },
@@ -180,46 +210,6 @@ export const navigationItems: NavSection[] = [
         href: "/reports",
         icon: BarChart3,
         permission: PERMISSIONS.REPORTING_BRANCH,
-      },
-    ],
-  },
-  {
-    label: "Purchases",
-    items: [
-      {
-        title: "All Purchases",
-        href: "/purchases",
-        icon: ShoppingCart,
-        permission: PERMISSIONS.PURCHASE_VIEW,
-      },
-      {
-        title: "Dues to Pay",
-        href: "/purchases/dues",
-        icon: AlertTriangle,
-        permission: PERMISSIONS.PURCHASE_VIEW,
-      },
-      {
-        title: "Suppliers",
-        href: "/purchases/suppliers",
-        icon: Users2,
-        permission: PERMISSIONS.PURCHASE_VIEW,
-      },
-    ],
-  },
-  {
-    label: "Transfers",
-    items: [
-      {
-        title: "All Transfers",
-        href: "/transfers",
-        icon: ArrowLeftRight,
-        permission: PERMISSIONS.TRANSFER_VIEW,
-      },
-      {
-        title: "New Transfer",
-        href: "/transfers/new",
-        icon: Truck,
-        permission: PERMISSIONS.TRANSFER_CREATE,
       },
     ],
   },
