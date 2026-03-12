@@ -61,7 +61,24 @@ export default async function PayrollReportPage() {
     );
   }
 
-  const runs = await getPayrollSummary(companyId, branchId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let runs: any[] = [];
+  try {
+    runs = await getPayrollSummary(companyId, branchId);
+  } catch (err) {
+    console.error("Failed to load payroll summary:", err);
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Payroll Report"
+          description="Monthly payroll runs with gross, deductions, and net summary"
+        />
+        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950">
+          <strong>Error loading payroll report.</strong> Please refresh the page or contact support.
+        </div>
+      </div>
+    );
+  }
 
   const totalGross = runs.reduce((sum: number, r: any) => sum + (r.total_gross || 0), 0);
   const totalDeductions = runs.reduce(

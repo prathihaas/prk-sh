@@ -8,19 +8,53 @@ export async function getCashSummary(
 ) {
   const supabase = await createClient();
 
-  // Get recent cashbook day summaries
+  // cashbook_days has: id, date, opening_balance, system_closing, status
+  // (no day_date, closing_balance, total_receipts, or total_payments columns)
   let query = supabase
     .from("cashbook_days")
     .select(
-      "day_date, opening_balance, closing_balance, total_receipts, total_payments, status, cashbook:cashbooks(name)"
+      "id, date, opening_balance, system_closing, status, cashbook:cashbooks(name)"
     )
     .eq("company_id", companyId)
-    .order("day_date", { ascending: false })
+    .order("date", { ascending: false })
     .limit(50);
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
+  if (branchId) query = query.eq("branch_id", branchId);
+
+  const { data: days, error: daysError } = await query;
+  if (daysError) throw daysError;
+  if (!days || days.length === 0) return [];
+
+  // Aggregate receipt/payment totals from cashbook_transactions (txn_type: receipt | payment)
+  const dayIds = days.map((d: { id: string }) => d.id);
+  const { data: txns, error: txnError } = await supabase
+    .from("cashbook_transactions")
+    .select("cashbook_day_id, txn_type, amount")
+    .in("cashbook_day_id", dayIds)
+    .eq("is_voided", false);
+
+  if (txnError) throw txnError;
+
+  const aggregates = new Map<string, { total_receipts: number; total_payments: number }>();
+  for (const txn of txns || []) {
+    const agg = aggregates.get(txn.cashbook_day_id) || {
+      total_receipts: 0,
+      total_payments: 0,
+    };
+    if (txn.txn_type === "receipt") agg.total_receipts += Number(txn.amount) || 0;
+    else if (txn.txn_type === "payment") agg.total_payments += Number(txn.amount) || 0;
+    aggregates.set(txn.cashbook_day_id, agg);
+  }
+
+  // Return with aliased fields for UI compatibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (days as any[]).map((day) => ({
+    ...day,
+    day_date: day.date,
+    closing_balance: day.system_closing,
+    total_receipts: aggregates.get(day.id)?.total_receipts ?? 0,
+    total_payments: aggregates.get(day.id)?.total_payments ?? 0,
+  }));
 }
 
 export async function getRevenueSummary(
@@ -109,11 +143,10 @@ export async function getPayrollSummary(
   branchId?: string | null
 ) {
   const supabase = await createClient();
+  // payroll_runs has no employee_count column — removed from select
   let query = supabase
     .from("payroll_runs")
-    .select(
-      "id, month, year, total_gross, total_deductions, total_net, status, employee_count"
-    )
+    .select("id, month, year, total_gross, total_deductions, total_net, status")
     .eq("company_id", companyId)
     .order("year", { ascending: false })
     .order("month", { ascending: false })

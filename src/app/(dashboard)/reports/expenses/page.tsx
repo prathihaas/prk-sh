@@ -66,7 +66,24 @@ export default async function ExpenseReportPage({
   const selectedBranch = params.branch || "consolidated";
 
   const branchIdFilter = selectedBranch === "consolidated" ? null : selectedBranch;
-  const { expenses, summary } = await getExpenseSummary(companyId, branchIdFilter);
+
+  let expenses: any[] = [];
+  let summary = { totalExpenses: 0, approvedExpenses: 0, pendingExpenses: 0, count: 0 };
+  try {
+    const result = await getExpenseSummary(companyId, branchIdFilter);
+    expenses = result.expenses as any[];
+    summary = result.summary;
+  } catch (err) {
+    console.error("Failed to load expense summary:", err);
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Expense Report" description="Expense tracking with category breakdown and approval status" />
+        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950">
+          <strong>Error loading expense report.</strong> Please refresh the page or contact support.
+        </div>
+      </div>
+    );
+  }
 
   const selectedBranchName =
     selectedBranch === "consolidated"

@@ -70,7 +70,25 @@ export default async function RevenuePage({
   const selectedBranch = params.branch || "consolidated";
 
   const branchIdFilter = selectedBranch === "consolidated" ? null : selectedBranch;
-  const { invoices, summary } = await getRevenueSummary(companyId, branchIdFilter);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let invoices: any[] = [];
+  let summary = { totalRevenue: 0, totalOutstanding: 0, totalCollected: 0, count: 0 };
+  try {
+    const result = await getRevenueSummary(companyId, branchIdFilter);
+    invoices = result.invoices as any[];
+    summary = result.summary;
+  } catch (err) {
+    console.error("Failed to load revenue summary:", err);
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Revenue Report" description="Invoice revenue, collections and outstanding analysis" />
+        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950">
+          <strong>Error loading revenue report.</strong> Please refresh the page or contact support.
+        </div>
+      </div>
+    );
+  }
 
   const selectedBranchName =
     selectedBranch === "consolidated"

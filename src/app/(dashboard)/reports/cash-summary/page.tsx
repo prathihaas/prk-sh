@@ -71,8 +71,22 @@ export default async function CashSummaryPage({
   const selectedBranch = params.branch || "consolidated";
 
   const branchIdFilter = selectedBranch === "consolidated" ? null : selectedBranch;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cashDays = await getCashSummary(companyId, branchIdFilter) as any[];
+  let cashDays: any[] = [];
+  try {
+    cashDays = await getCashSummary(companyId, branchIdFilter) as any[];
+  } catch (err) {
+    console.error("Failed to load cash summary:", err);
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Cash Summary" description="Daily cashbook balances and transaction overview" />
+        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950">
+          <strong>Error loading cash summary.</strong> Please refresh the page or contact support.
+        </div>
+      </div>
+    );
+  }
 
   const totalReceipts = cashDays.reduce((sum: number, d) => sum + (d.total_receipts || 0), 0);
   const totalPayments = cashDays.reduce((sum: number, d) => sum + (d.total_payments || 0), 0);
