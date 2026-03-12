@@ -36,7 +36,7 @@ interface ExpensePaymentFormProps {
     expense_date: string;
     approval_status: string;
   };
-  cashbooks: { id: string; name: string; cashbook_type: string }[];
+  cashbooks: { id: string; name: string; type: string }[];
   canBypassApproval?: boolean;
 }
 

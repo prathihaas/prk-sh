@@ -22,30 +22,63 @@ export async function getCashbooks(
   typeFilter?: "cash" | "bank" | null
 ) {
   const supabase = await createClient();
-  let query = supabase
+
+  if (typeFilter === "bank") {
+    // Banks are company-wide — DO NOT filter by branch
+    const { data, error } = await supabase
+      .from("cashbooks")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("type", "bank")
+      .order("name");
+    if (error) throw error;
+    return data || [];
+  }
+
+  if (typeFilter === "cash") {
+    // Cash/petty are branch-specific
+    let q = supabase
+      .from("cashbooks")
+      .select("*")
+      .eq("company_id", companyId)
+      .in("type", ["main", "petty"]);
+    if (branchId) q = q.eq("branch_id", branchId);
+    const { data, error } = await q.order("name");
+    if (error) throw error;
+    return data || [];
+  }
+
+  // No type filter: return ALL types (cash + bank).
+  // Use two separate queries to avoid PostgREST .or() issues:
+  //   1. Cash/petty for this branch (branch-specific)
+  //   2. Bank accounts (always company-wide, no branch filter)
+  if (branchId) {
+    const [cashResult, bankResult] = await Promise.all([
+      supabase
+        .from("cashbooks")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("branch_id", branchId)
+        .in("type", ["main", "petty"])
+        .order("name"),
+      supabase
+        .from("cashbooks")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("type", "bank")
+        .order("name"),
+    ]);
+    if (cashResult.error) throw cashResult.error;
+    if (bankResult.error) throw bankResult.error;
+    return [...(cashResult.data || []), ...(bankResult.data || [])];
+  }
+
+  // No branchId: return all cashbooks for the company
+  const { data, error } = await supabase
     .from("cashbooks")
     .select("*")
     .eq("company_id", companyId)
     .order("name");
-
-  if (typeFilter === "bank") {
-    // Banks are company-wide — DO NOT filter by branch
-    query = query.eq("type", "bank");
-  } else if (typeFilter === "cash") {
-    // Cash/petty are branch-specific
-    if (branchId) query = query.eq("branch_id", branchId);
-    query = query.in("type", ["main", "petty"]);
-  } else {
-    // No type filter: return ALL types (cash + bank)
-    // Cash/petty are branch-specific; banks are company-wide (no branch_id set)
-    if (branchId) {
-      // Return cash books for this branch OR bank books (which are company-wide)
-      query = query.or(`branch_id.eq.${branchId},type.eq.bank`);
-    }
-    // If no branchId, just return all company cashbooks (no branch filter needed)
-  }
-
-  const { data, error } = await query;
   if (error) throw error;
   return data || [];
 }

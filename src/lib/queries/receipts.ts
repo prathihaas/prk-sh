@@ -209,25 +209,46 @@ export async function voidReceipt(
 
 /**
  * Get active cashbooks for a branch (for receipt/expense cashbook selection).
+ * Banks are company-wide; cash/petty are branch-specific.
+ * Uses two separate queries to avoid PostgREST .or() issues.
  */
 export async function getActiveCashbooks(
   companyId: string,
   branchId?: string | null
 ) {
   const supabase = await createClient();
-  let query = supabase
+
+  if (branchId) {
+    // Cash/petty filtered by branch; bank accounts are company-wide
+    const [cashResult, bankResult] = await Promise.all([
+      supabase
+        .from("cashbooks")
+        .select("id, name, type")
+        .eq("company_id", companyId)
+        .eq("branch_id", branchId)
+        .in("type", ["main", "petty"])
+        .eq("is_active", true)
+        .order("name"),
+      supabase
+        .from("cashbooks")
+        .select("id, name, type")
+        .eq("company_id", companyId)
+        .eq("type", "bank")
+        .eq("is_active", true)
+        .order("name"),
+    ]);
+    if (cashResult.error) throw cashResult.error;
+    if (bankResult.error) throw bankResult.error;
+    return [...(cashResult.data || []), ...(bankResult.data || [])];
+  }
+
+  // No branchId: return all active cashbooks for the company
+  const { data, error } = await supabase
     .from("cashbooks")
     .select("id, name, type")
     .eq("company_id", companyId)
     .eq("is_active", true)
     .order("name");
-
-  if (branchId) {
-    // Cash/petty filtered by branch; bank accounts are company-wide
-    query = query.or(`branch_id.eq.${branchId},type.eq.bank`);
-  }
-
-  const { data, error } = await query;
   if (error) throw error;
   return data || [];
 }
