@@ -16,10 +16,10 @@ export async function getApprovalMatrix(
     .from("approval_matrix")
     .select("*, approver_role:roles(id, name)")
     .eq("company_id", companyId)
-    .order("request_type")
+    .order("entity_type")
     .order("step_order");
 
-  if (requestType) query = query.eq("request_type", requestType);
+  if (requestType) query = query.eq("entity_type", requestType);
 
   const { data, error } = await query;
   if (error) throw error;
@@ -46,7 +46,7 @@ export async function createApprovalMatrixEntry(
 
   const { error } = await supabase.from("approval_matrix").insert({
     company_id: values.company_id,
-    request_type: validated.request_type,
+    entity_type: validated.entity_type,
     step_order: validated.step_order,
     approver_role_id: validated.approver_role_id,
     is_active: validated.is_active,
@@ -67,7 +67,7 @@ export async function updateApprovalMatrixEntry(
   const { error } = await supabase
     .from("approval_matrix")
     .update({
-      request_type: validated.request_type,
+      entity_type: validated.entity_type,
       step_order: validated.step_order,
       approver_role_id: validated.approver_role_id,
       is_active: validated.is_active,

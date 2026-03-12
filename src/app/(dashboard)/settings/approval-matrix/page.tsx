@@ -12,7 +12,7 @@ import { columns } from "./columns";
 export default async function ApprovalMatrixPage({
   searchParams,
 }: {
-  searchParams: Promise<{ request_type?: string }>;
+  searchParams: Promise<{ entity_type?: string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -42,7 +42,7 @@ export default async function ApprovalMatrixPage({
 
   let entries: Awaited<ReturnType<typeof getApprovalMatrix>> = [];
   try {
-    entries = await getApprovalMatrix(companyId, params.request_type);
+    entries = await getApprovalMatrix(companyId, params.entity_type);
   } catch (err) {
     console.error("Failed to load approval matrix:", err);
     return (
@@ -68,12 +68,14 @@ export default async function ApprovalMatrixPage({
       <FilterBar
         filters={[
           {
-            key: "request_type",
+            key: "entity_type",
             label: "Request Type",
             options: [
               { value: "expense", label: "Expense" },
               { value: "invoice", label: "Invoice" },
-              { value: "cashbook_variance", label: "Cashbook Variance" },
+              { value: "variance_approval", label: "Cashbook Variance" },
+              { value: "receipt", label: "Receipt" },
+              { value: "void_transaction", label: "Void Transaction" },
             ],
           },
         ]}

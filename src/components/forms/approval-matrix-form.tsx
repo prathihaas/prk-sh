@@ -37,7 +37,9 @@ import { FormCard } from "@/components/shared/form-card";
 const REQUEST_TYPES = [
   { value: "expense", label: "Expense" },
   { value: "invoice", label: "Invoice" },
-  { value: "cashbook_variance", label: "Cashbook Variance" },
+  { value: "variance_approval", label: "Cashbook Variance" },
+  { value: "receipt", label: "Receipt" },
+  { value: "void_transaction", label: "Void Transaction" },
 ];
 
 interface ApprovalMatrixFormProps {
@@ -58,7 +60,7 @@ export function ApprovalMatrixForm({
   const form = useForm<ApprovalMatrixFormValues>({
     resolver: zodResolver(approvalMatrixSchema),
     defaultValues: {
-      request_type: (entry?.request_type as string) || "",
+      entity_type: (entry?.entity_type as string) || "",
       step_order: (entry?.step_order as number) ?? 1,
       approver_role_id: (entry?.approver_role_id as string) || "",
       is_active: (entry?.is_active as boolean) ?? true,
@@ -104,7 +106,7 @@ export function ApprovalMatrixForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
-              name="request_type"
+              name="entity_type"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Request Type *</FormLabel>

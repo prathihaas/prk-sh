@@ -19,7 +19,7 @@ import { deleteApprovalMatrixEntry } from "@/lib/queries/approval-matrix";
 export type ApprovalMatrixRow = {
   id: string;
   step_order: number;
-  request_type: string;
+  entity_type: string;
   approver_role_id: string;
   is_active: boolean;
   approver_role: { id: string; name: string } | null;
@@ -28,7 +28,15 @@ export type ApprovalMatrixRow = {
 const REQUEST_TYPE_LABELS: Record<string, string> = {
   expense: "Expense",
   invoice: "Invoice",
-  cashbook_variance: "Cashbook Variance",
+  variance_approval: "Cashbook Variance",
+  receipt: "Receipt",
+  void_transaction: "Void Transaction",
+  cashbook_reopen: "Cashbook Reopen",
+  payment_mode_change: "Payment Mode Change",
+  high_value_txn: "High Value Transaction",
+  refund: "Refund",
+  payroll_reopen: "Payroll Reopen",
+  attendance_close: "Attendance Close",
 };
 
 export const columns: ColumnDef<ApprovalMatrixRow>[] = [
@@ -39,11 +47,11 @@ export const columns: ColumnDef<ApprovalMatrixRow>[] = [
     ),
   },
   {
-    accessorKey: "request_type",
+    accessorKey: "entity_type",
     header: "Request Type",
     cell: ({ row }) =>
-      REQUEST_TYPE_LABELS[row.getValue("request_type") as string] ||
-      row.getValue("request_type"),
+      REQUEST_TYPE_LABELS[row.getValue("entity_type") as string] ||
+      row.getValue("entity_type"),
   },
   {
     id: "approver_role_name",
