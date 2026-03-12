@@ -177,7 +177,23 @@ export default async function UnapprovedPaymentsPage() {
     );
   }
 
-  const payments = await getUnapprovedPayments(companyId, branchId);
+  let payments: Awaited<ReturnType<typeof getUnapprovedPayments>> = [];
+  try {
+    payments = await getUnapprovedPayments(companyId, branchId);
+  } catch (err) {
+    console.error("Failed to load unapproved payments:", err);
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Unapproved Payments Report"
+          description="Expenses paid by cashiers directly without completing the full approval workflow"
+        />
+        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950">
+          <strong>Error loading data.</strong> Please refresh the page or contact support.
+        </div>
+      </div>
+    );
+  }
   const totalAmount = payments.reduce((sum: number, p: { amount?: number }) => sum + (p.amount || 0), 0);
 
   // Flatten for export

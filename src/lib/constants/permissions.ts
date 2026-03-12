@@ -74,9 +74,14 @@ export const PERMISSIONS = {
   PURCHASE_CREATE: "purchase:create",
   PURCHASE_IMPORT: "purchase:import",
 
-  // Transfers
+  // Transfers (branch goods transfers)
   TRANSFER_VIEW: "transfer:view",
   TRANSFER_CREATE: "transfer:create",
   TRANSFER_RECEIVE: "transfer:receive",
   TRANSFER_CHALLAN: "transfer:challan",
+
+  // Cashbook Transfers (internal money transfers between cashbooks)
+  CASHBOOK_TRANSFER_CREATE: "cashbook_transfer:create",
+  CASHBOOK_TRANSFER_VIEW: "cashbook_transfer:view",
+  CASHBOOK_TRANSFER_APPROVE: "cashbook_transfer:approve",
 } as const;

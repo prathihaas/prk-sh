@@ -37,6 +37,38 @@ export async function getCustomer(id: string) {
   return data;
 }
 
+/**
+ * Check if a phone number already exists for another customer in the same company.
+ * Returns the existing customer's name + code if found.
+ */
+export async function checkCustomerPhoneDuplicate(
+  companyId: string,
+  phone: string,
+  excludeId?: string
+): Promise<{ isDuplicate: boolean; existingCustomer?: { full_name: string; customer_code: string } }> {
+  if (!phone?.trim()) return { isDuplicate: false };
+  const supabase = await createClient();
+  let query = supabase
+    .from("customers")
+    .select("id, full_name, customer_code")
+    .eq("company_id", companyId)
+    .eq("phone", phone.trim())
+    .limit(1);
+
+  if (excludeId) {
+    query = query.neq("id", excludeId);
+  }
+
+  const { data } = await query;
+  if (data && data.length > 0) {
+    return {
+      isDuplicate: true,
+      existingCustomer: { full_name: data[0].full_name, customer_code: data[0].customer_code },
+    };
+  }
+  return { isDuplicate: false };
+}
+
 export async function createCustomer(
   values: CustomerFormValues & {
     company_id: string;
@@ -46,6 +78,16 @@ export async function createCustomer(
 ) {
   const validated = customerSchema.parse(values);
   const supabase = await createClient();
+
+  // Phone duplicate check — prevent two customers in the same company with same phone
+  if (validated.phone) {
+    const dupCheck = await checkCustomerPhoneDuplicate(values.company_id, validated.phone);
+    if (dupCheck.isDuplicate && dupCheck.existingCustomer) {
+      return {
+        error: `Phone ${validated.phone} is already registered to ${dupCheck.existingCustomer.full_name} (${dupCheck.existingCustomer.customer_code}). Each customer must have a unique phone number.`,
+      };
+    }
+  }
 
   const { data, error } = await supabase
     .from("customers")
@@ -74,9 +116,22 @@ export async function createCustomer(
   return { success: true, id: data.id, customer_code: data.customer_code };
 }
 
-export async function updateCustomer(id: string, values: CustomerFormValues) {
+export async function updateCustomer(
+  id: string,
+  values: CustomerFormValues & { company_id: string }
+) {
   const validated = customerSchema.parse(values);
   const supabase = await createClient();
+
+  // Phone duplicate check — exclude the current customer being edited
+  if (validated.phone) {
+    const dupCheck = await checkCustomerPhoneDuplicate(values.company_id, validated.phone, id);
+    if (dupCheck.isDuplicate && dupCheck.existingCustomer) {
+      return {
+        error: `Phone ${validated.phone} is already registered to ${dupCheck.existingCustomer.full_name} (${dupCheck.existingCustomer.customer_code}).`,
+      };
+    }
+  }
 
   const { error } = await supabase
     .from("customers")

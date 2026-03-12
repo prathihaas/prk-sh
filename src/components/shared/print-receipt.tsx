@@ -24,7 +24,7 @@ interface PrintReceiptProps {
   };
   company: {
     name: string;
-    gst_number: string | null;
+    gstin: string | null;
     address: string | null;
     logo_url?: string | null;
   } | null;
@@ -147,9 +147,9 @@ export function PrintReceipt({
           {branch?.phone && (
             <p className="text-xs text-gray-600">Tel: {branch.phone}</p>
           )}
-          {company?.gst_number && (
+          {company?.gstin && (
             <p className="text-sm font-medium mt-1">
-              GSTIN: {company.gst_number}
+              GSTIN: {company.gstin}
             </p>
           )}
         </div>

@@ -32,7 +32,7 @@ export async function getExpenseWithContext(id: string) {
   // Get company and branch
   const { data: company } = await supabase
     .from("companies")
-    .select("name, gst_number, address, pan_number")
+    .select("name, gstin, address, pan_number, logo_url")
     .eq("id", expense.company_id)
     .single();
 

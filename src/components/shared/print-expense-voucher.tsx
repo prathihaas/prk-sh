@@ -24,7 +24,7 @@ interface PrintExpenseVoucherProps {
   voucher_number?: string;
   company: {
     name: string;
-    gst_number?: string | null;
+    gstin?: string | null;
     address?: string | null;
     pan_number?: string | null;
     logo_url?: string | null;
@@ -143,7 +143,7 @@ export function PrintExpenseVoucher({
             <p className="text-xs text-gray-600">Tel: {branch.phone}</p>
           )}
           <div className="flex justify-center gap-6 mt-1 text-xs text-gray-600">
-            {company?.gst_number && <span>GSTIN: {company.gst_number}</span>}
+            {company?.gstin && <span>GSTIN: {company.gstin}</span>}
             {company?.pan_number && <span>PAN: {company.pan_number}</span>}
           </div>
         </div>

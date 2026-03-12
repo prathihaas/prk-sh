@@ -36,8 +36,13 @@ export async function getCashbooks(
     if (branchId) query = query.eq("branch_id", branchId);
     query = query.in("type", ["main", "petty"]);
   } else {
-    // No type filter: apply branch filter for non-bank books
-    if (branchId) query = query.eq("branch_id", branchId);
+    // No type filter: return ALL types (cash + bank)
+    // Cash/petty are branch-specific; banks are company-wide (no branch_id set)
+    if (branchId) {
+      // Return cash books for this branch OR bank books (which are company-wide)
+      query = query.or(`branch_id.eq.${branchId},type.eq.bank`);
+    }
+    // If no branchId, just return all company cashbooks (no branch filter needed)
   }
 
   const { data, error } = await query;
@@ -112,8 +117,8 @@ export async function getCashbooksForUser(
     return data || [];
   }
 
-  // Managers and above: standard full access
-  return getCashbooks(companyId, branchId, typeFilter ?? "cash");
+  // Managers and above: standard full access (pass typeFilter as-is, null = all types)
+  return getCashbooks(companyId, branchId, typeFilter ?? null);
 }
 
 /**
@@ -126,12 +131,15 @@ export async function getActiveCashbooksForUser(
   userId: string,
   userHierarchyLevel: number
 ) {
+  // Pass null typeFilter so ALL cashbook types (cash + bank) are returned.
+  // Banks are company-wide; cash/petty are branch-specific.
+  // Cashiers will still only see their single assigned cashbook (enforced inside getCashbooksForUser).
   const cashbooks = await getCashbooksForUser(
     companyId,
     branchId,
     userId,
     userHierarchyLevel,
-    "cash"
+    null
   );
   return cashbooks.filter((c: { is_active: boolean }) => c.is_active);
 }

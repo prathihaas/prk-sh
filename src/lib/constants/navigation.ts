@@ -109,7 +109,13 @@ export const navigationItems: NavSection[] = [
         permission: PERMISSIONS.CASHBOOK_READ,
       },
       {
-        title: "Transfers",
+        title: "Cashbook Transfers",
+        href: "/cash/cashbook-transfers",
+        icon: ArrowLeftRight,
+        permission: PERMISSIONS.CASHBOOK_TRANSFER_VIEW,
+      },
+      {
+        title: "Branch Transfers",
         href: "/transfers",
         icon: ArrowLeftRight,
         permission: PERMISSIONS.TRANSFER_VIEW,

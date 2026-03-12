@@ -69,7 +69,7 @@ export function CustomerForm({
     setIsSubmitting(true);
     try {
       const result = isEditing
-        ? await updateCustomer(customer!.id as string, values)
+        ? await updateCustomer(customer!.id as string, { ...values, company_id: companyId })
         : await createCustomer({
             ...values,
             company_id: companyId,

@@ -63,10 +63,10 @@ export async function getReceiptWithContext(id: string) {
     .eq("id", transaction.cashbook_id)
     .single();
 
-  // Get the company
+  // Get the company — explicitly select fields so PrintReceipt gets gstin + logo_url
   const { data: company } = await supabase
     .from("companies")
-    .select("*")
+    .select("id, name, gstin, address, logo_url")
     .eq("id", transaction.company_id)
     .single();
 
@@ -217,13 +217,14 @@ export async function getActiveCashbooks(
   const supabase = await createClient();
   let query = supabase
     .from("cashbooks")
-    .select("id, name, cashbook_type")
+    .select("id, name, type")
     .eq("company_id", companyId)
     .eq("is_active", true)
     .order("name");
 
   if (branchId) {
-    query = query.eq("branch_id", branchId);
+    // Cash/petty filtered by branch; bank accounts are company-wide
+    query = query.or(`branch_id.eq.${branchId},type.eq.bank`);
   }
 
   const { data, error } = await query;

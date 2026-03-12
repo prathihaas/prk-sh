@@ -32,7 +32,7 @@ interface ReceiptFormProps {
   branchId: string;
   currentUserId: string;
   financialYearId: string;
-  cashbooks: { id: string; name: string; cashbook_type: string }[];
+  cashbooks: { id: string; name: string; type: string }[];
   canBackdate?: boolean;
   /** If provided, OTP approval dialog is shown after receipt creation */
   approvalChain?: {
@@ -181,8 +181,8 @@ export function ReceiptForm({
                         {cashbooks.map((cb) => (
                           <SelectItem key={cb.id} value={cb.id}>
                             {cb.name}{" "}
-                            <span className="text-muted-foreground text-xs">
-                              ({cb.cashbook_type})
+                            <span className="text-muted-foreground text-xs capitalize">
+                              ({cb.type === "main" ? "cash" : cb.type})
                             </span>
                           </SelectItem>
                         ))}
