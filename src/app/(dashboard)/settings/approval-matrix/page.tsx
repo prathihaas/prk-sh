@@ -39,7 +39,24 @@ export default async function ApprovalMatrixPage({
   }
 
   const params = await searchParams;
-  const entries = await getApprovalMatrix(companyId, params.request_type);
+
+  let entries: Awaited<ReturnType<typeof getApprovalMatrix>> = [];
+  try {
+    entries = await getApprovalMatrix(companyId, params.request_type);
+  } catch (err) {
+    console.error("Failed to load approval matrix:", err);
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Approval Matrix"
+          description="Configure multi-step approval workflows"
+        />
+        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950">
+          <strong>Error loading approval matrix.</strong> Please refresh the page or contact support.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
