@@ -8,7 +8,7 @@ export async function getFinancialYears(companyId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("financial_years")
-    .select("*, locked_by_user:user_profiles!financial_years_locked_by_fkey(full_name)")
+    .select("*, locked_by_user:user_profiles!fk_fy_locked_by(full_name)")
     .eq("company_id", companyId)
     .order("start_date", { ascending: false });
 

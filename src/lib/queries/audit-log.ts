@@ -16,7 +16,7 @@ export async function getAuditLogs(
   const supabase = await createClient();
   let query = supabase
     .from("audit_log")
-    .select("*, actor:user_profiles!audit_log_changed_by_fkey(full_name, email)")
+    .select("*")
     .eq("company_id", companyId)
     .order("created_at", { ascending: false })
     .limit(1000);
@@ -39,7 +39,7 @@ export async function getRecordAuditLog(recordId: string, tableName: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("audit_log")
-    .select("*, actor:user_profiles!audit_log_changed_by_fkey(full_name)")
+    .select("*")
     .eq("record_id", recordId)
     .eq("table_name", tableName)
     .order("created_at", { ascending: true });

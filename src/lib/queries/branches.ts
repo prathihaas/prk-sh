@@ -8,7 +8,7 @@ export async function getBranches(companyId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("branches")
-    .select("*, manager:user_profiles!branches_manager_user_id_fkey(full_name)")
+    .select("*, manager:user_profiles!fk_branches_manager(full_name)")
     .eq("company_id", companyId)
     .order("name");
 
