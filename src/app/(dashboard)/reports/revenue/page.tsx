@@ -25,12 +25,12 @@ import { ExportButton } from "@/components/shared/export-button";
 import { ReportScopeSelector } from "../report-scope-selector";
 
 const EXPORT_COLUMNS = [
-  { key: "invoice_number", header: "Invoice #", width: 18 },
+  { key: "dms_invoice_number", header: "Invoice #", width: 18 },
   { key: "invoice_date", header: "Date", width: 14, format: "date" as const },
   { key: "customer_name", header: "Customer", width: 28 },
-  { key: "total_amount", header: "Total Amount", width: 18, format: "currency" as const },
+  { key: "grand_total", header: "Total Amount", width: 18, format: "currency" as const },
   { key: "balance_due", header: "Balance Due", width: 18, format: "currency" as const },
-  { key: "status", header: "Status", width: 14 },
+  { key: "approval_status", header: "Status", width: 14 },
 ];
 
 export default async function RevenuePage({
@@ -168,12 +168,12 @@ export default async function RevenuePage({
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {invoices.map((inv: any) => (
                     <TableRow key={inv.id}>
-                      <TableCell className="font-medium">{inv.invoice_number}</TableCell>
+                      <TableCell className="font-medium">{inv.dms_invoice_number || "—"}</TableCell>
                       <TableCell>{new Date(inv.invoice_date).toLocaleDateString("en-IN")}</TableCell>
                       <TableCell>{inv.customer_name}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(inv.total_amount)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(inv.grand_total)}</TableCell>
                       <TableCell className="text-right tabular-nums text-orange-600">{formatINR(inv.balance_due)}</TableCell>
-                      <TableCell><StatusBadge status={inv.status} /></TableCell>
+                      <TableCell><StatusBadge status={inv.approval_status} /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -1,35 +1,22 @@
 import { z } from "zod";
 
+// invoice_type enum matches DB: automobile_sale, tractor_agri_sale, service, bank_payment, other_income
 export const invoiceSchema = z.object({
-  invoice_type: z.enum(["automobile", "tractor", "service", "bank_payment", "other_income"], {
+  invoice_type: z.enum(["automobile_sale", "tractor_agri_sale", "service", "bank_payment", "other_income"], {
     error: "Select invoice type",
   }),
   customer_name: z.string().min(1, "Customer name is required").max(300),
   customer_gstin: z.string().max(15).optional().or(z.literal("")),
   customer_phone: z.string().max(15).optional().or(z.literal("")),
-  customer_address: z.string().max(500).optional().or(z.literal("")),
   dms_invoice_number: z.string().max(100).optional().or(z.literal("")),
   invoice_date: z.string().min(1, "Invoice date is required"),
-  // Automobile fields
-  vehicle_model: z.string().max(200).optional().or(z.literal("")),
-  vehicle_variant: z.string().max(200).optional().or(z.literal("")),
-  vin_number: z.string().max(50).optional().or(z.literal("")),
-  engine_number: z.string().max(50).optional().or(z.literal("")),
-  // Tractor fields
-  tractor_model: z.string().max(200).optional().or(z.literal("")),
-  tractor_hp: z.string().max(50).optional().or(z.literal("")),
-  chassis_number: z.string().max(50).optional().or(z.literal("")),
-  // Service fields
-  service_type: z.string().max(200).optional().or(z.literal("")),
-  job_card_number: z.string().max(100).optional().or(z.literal("")),
-  vehicle_reg_number: z.string().max(20).optional().or(z.literal("")),
-  // Bank Payment fields
+  // Bank Payment fields (exist in DB)
   finance_company_name: z.string().max(200).optional().or(z.literal("")),
   loan_account_ref: z.string().max(100).optional().or(z.literal("")),
-  // Other Income fields
+  // Other Income fields (exist in DB)
   income_category: z.string().max(200).optional().or(z.literal("")),
   income_ref_number: z.string().max(100).optional().or(z.literal("")),
-  // Financial
+  // Financial — base_amount is a UI concept; routed to the right DB column by invoice_type
   base_amount: z.number({ error: "Must be a number" }).min(0, "Amount cannot be negative"),
   discount_amount: z.number({ error: "Must be a number" }).min(0),
   tax_breakup: z.object({

@@ -55,6 +55,16 @@ export async function getDueInvoices(companyId: string, branchId?: string | null
   return data || [];
 }
 
+/** Maps the UI base_amount to the correct per-type DB amount column */
+function getAmountFields(invoiceType: string, baseAmount: number) {
+  switch (invoiceType) {
+    case "automobile_sale": return { vehicle_sale_value: baseAmount };
+    case "tractor_agri_sale": return { machine_value: baseAmount };
+    case "service": return { labour_amount: baseAmount };
+    default: return { other_charges: baseAmount }; // bank_payment, other_income
+  }
+}
+
 export async function createInvoice(
   values: InvoiceFormValues & {
     company_id: string;
@@ -69,30 +79,20 @@ export async function createInvoice(
   const taxTotal = (validated.tax_breakup?.cgst || 0) + (validated.tax_breakup?.sgst || 0) +
     (validated.tax_breakup?.igst || 0) + (validated.tax_breakup?.cess || 0);
   const grandTotal = validated.base_amount - (validated.discount_amount || 0) + taxTotal;
+  const amountFields = getAmountFields(validated.invoice_type, validated.base_amount);
 
   const { error } = await supabase.from("invoices").insert({
     invoice_type: validated.invoice_type,
     customer_name: validated.customer_name,
     customer_gstin: validated.customer_gstin || null,
     customer_phone: validated.customer_phone || null,
-    customer_address: validated.customer_address || null,
     dms_invoice_number: validated.dms_invoice_number || null,
     invoice_date: validated.invoice_date,
-    vehicle_model: validated.vehicle_model || null,
-    vehicle_variant: validated.vehicle_variant || null,
-    vin_number: validated.vin_number || null,
-    engine_number: validated.engine_number || null,
-    tractor_model: validated.tractor_model || null,
-    tractor_hp: validated.tractor_hp || null,
-    chassis_number: validated.chassis_number || null,
-    service_type: validated.service_type || null,
-    job_card_number: validated.job_card_number || null,
-    vehicle_reg_number: validated.vehicle_reg_number || null,
     finance_company_name: validated.finance_company_name || null,
     loan_account_ref: validated.loan_account_ref || null,
     income_category: validated.income_category || null,
     income_ref_number: validated.income_ref_number || null,
-    base_amount: validated.base_amount,
+    ...amountFields,
     discount_amount: validated.discount_amount || 0,
     tax_breakup: validated.tax_breakup,
     total_tax: taxTotal,
@@ -116,6 +116,7 @@ export async function updateInvoice(id: string, values: InvoiceFormValues) {
   const taxTotal = (validated.tax_breakup?.cgst || 0) + (validated.tax_breakup?.sgst || 0) +
     (validated.tax_breakup?.igst || 0) + (validated.tax_breakup?.cess || 0);
   const grandTotal = validated.base_amount - (validated.discount_amount || 0) + taxTotal;
+  const amountFields = getAmountFields(validated.invoice_type, validated.base_amount);
 
   const { error } = await supabase
     .from("invoices")
@@ -124,24 +125,13 @@ export async function updateInvoice(id: string, values: InvoiceFormValues) {
       customer_name: validated.customer_name,
       customer_gstin: validated.customer_gstin || null,
       customer_phone: validated.customer_phone || null,
-      customer_address: validated.customer_address || null,
       dms_invoice_number: validated.dms_invoice_number || null,
       invoice_date: validated.invoice_date,
-      vehicle_model: validated.vehicle_model || null,
-      vehicle_variant: validated.vehicle_variant || null,
-      vin_number: validated.vin_number || null,
-      engine_number: validated.engine_number || null,
-      tractor_model: validated.tractor_model || null,
-      tractor_hp: validated.tractor_hp || null,
-      chassis_number: validated.chassis_number || null,
-      service_type: validated.service_type || null,
-      job_card_number: validated.job_card_number || null,
-      vehicle_reg_number: validated.vehicle_reg_number || null,
       finance_company_name: validated.finance_company_name || null,
       loan_account_ref: validated.loan_account_ref || null,
       income_category: validated.income_category || null,
       income_ref_number: validated.income_ref_number || null,
-      base_amount: validated.base_amount,
+      ...amountFields,
       discount_amount: validated.discount_amount || 0,
       tax_breakup: validated.tax_breakup,
       total_tax: taxTotal,

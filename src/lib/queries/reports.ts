@@ -62,12 +62,15 @@ export async function getRevenueSummary(
   branchId?: string | null
 ) {
   const supabase = await createClient();
+  // DB columns: dms_invoice_number (not invoice_number), grand_total (not total_amount),
+  // approval_status (not status). balance_due is a generated column.
   let query = supabase
     .from("invoices")
     .select(
-      "id, invoice_number, customer_name, total_amount, balance_due, status, invoice_date"
+      "id, dms_invoice_number, customer_name, grand_total, balance_due, approval_status, invoice_date"
     )
     .eq("company_id", companyId)
+    .eq("is_cancelled", false)
     .order("invoice_date", { ascending: false })
     .limit(100);
 
@@ -77,7 +80,7 @@ export async function getRevenueSummary(
   if (error) throw error;
 
   const totalRevenue = (data || []).reduce(
-    (sum: number, inv: any) => sum + (inv.total_amount || 0),
+    (sum: number, inv: any) => sum + (inv.grand_total || 0),
     0
   );
   const totalOutstanding = (data || []).reduce(

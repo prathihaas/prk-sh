@@ -38,6 +38,17 @@ interface InvoiceFormProps {
   invoice?: Record<string, unknown>;
 }
 
+/** When editing, derive base_amount from whichever per-type amount column has a value */
+function deriveBaseAmount(inv: Record<string, unknown>): number {
+  return (
+    Number(inv.vehicle_sale_value) ||
+    Number(inv.machine_value) ||
+    Number(inv.labour_amount) ||
+    Number(inv.other_charges) ||
+    0
+  );
+}
+
 export function InvoiceForm({
   companyId,
   branchId,
@@ -52,28 +63,17 @@ export function InvoiceForm({
   const form = useForm<InvoiceFormValues>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
-      invoice_type: (invoice?.invoice_type as "automobile" | "tractor" | "service" | "bank_payment" | "other_income") || "automobile",
+      invoice_type: (invoice?.invoice_type as "automobile_sale" | "tractor_agri_sale" | "service" | "bank_payment" | "other_income") || "automobile_sale",
       customer_name: (invoice?.customer_name as string) || "",
       customer_gstin: (invoice?.customer_gstin as string) || "",
       customer_phone: (invoice?.customer_phone as string) || "",
-      customer_address: (invoice?.customer_address as string) || "",
       dms_invoice_number: (invoice?.dms_invoice_number as string) || "",
       invoice_date: (invoice?.invoice_date as string) || new Date().toISOString().split("T")[0],
-      vehicle_model: (invoice?.vehicle_model as string) || "",
-      vehicle_variant: (invoice?.vehicle_variant as string) || "",
-      vin_number: (invoice?.vin_number as string) || "",
-      engine_number: (invoice?.engine_number as string) || "",
-      tractor_model: (invoice?.tractor_model as string) || "",
-      tractor_hp: (invoice?.tractor_hp as string) || "",
-      chassis_number: (invoice?.chassis_number as string) || "",
-      service_type: (invoice?.service_type as string) || "",
-      job_card_number: (invoice?.job_card_number as string) || "",
-      vehicle_reg_number: (invoice?.vehicle_reg_number as string) || "",
       finance_company_name: (invoice?.finance_company_name as string) || "",
       loan_account_ref: (invoice?.loan_account_ref as string) || "",
       income_category: (invoice?.income_category as string) || "",
       income_ref_number: (invoice?.income_ref_number as string) || "",
-      base_amount: (invoice?.base_amount as number) ?? 0,
+      base_amount: invoice ? deriveBaseAmount(invoice) : 0,
       discount_amount: (invoice?.discount_amount as number) ?? 0,
       tax_breakup: (invoice?.tax_breakup as { cgst: number; sgst: number; igst: number; cess: number }) || { cgst: 0, sgst: 0, igst: 0, cess: 0 },
       notes: (invoice?.notes as string) || "",
@@ -132,8 +132,8 @@ export function InvoiceForm({
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
                     <SelectContent>
-                      <SelectItem value="automobile">Vehicle Sale</SelectItem>
-                      <SelectItem value="tractor">Tractor / Agri Sale</SelectItem>
+                      <SelectItem value="automobile_sale">Vehicle Sale</SelectItem>
+                      <SelectItem value="tractor_agri_sale">Tractor / Agri Sale</SelectItem>
                       <SelectItem value="service">Vehicle Service</SelectItem>
                       <SelectItem value="bank_payment">Bank Payment (Finance)</SelectItem>
                       <SelectItem value="other_income">Other Income</SelectItem>
@@ -187,72 +187,10 @@ export function InvoiceForm({
                     <FormMessage />
                   </FormItem>
                 )} />
-                <FormField control={form.control} name="customer_address" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address</FormLabel>
-                    <FormControl><Textarea rows={2} {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
               </div>
             </div>
 
             <Separator />
-
-            {/* Type-specific fields */}
-            {invoiceType === "automobile" && (
-              <div>
-                <h3 className="text-lg font-medium mb-4">Vehicle Details</h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField control={form.control} name="vehicle_model" render={({ field }) => (
-                    <FormItem><FormLabel>Model</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="vehicle_variant" render={({ field }) => (
-                    <FormItem><FormLabel>Variant</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="vin_number" render={({ field }) => (
-                    <FormItem><FormLabel>VIN Number</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="engine_number" render={({ field }) => (
-                    <FormItem><FormLabel>Engine Number</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                </div>
-              </div>
-            )}
-
-            {invoiceType === "tractor" && (
-              <div>
-                <h3 className="text-lg font-medium mb-4">Tractor Details</h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField control={form.control} name="tractor_model" render={({ field }) => (
-                    <FormItem><FormLabel>Model</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="tractor_hp" render={({ field }) => (
-                    <FormItem><FormLabel>HP</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="chassis_number" render={({ field }) => (
-                    <FormItem><FormLabel>Chassis Number</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                </div>
-              </div>
-            )}
-
-            {invoiceType === "service" && (
-              <div>
-                <h3 className="text-lg font-medium mb-4">Service Details</h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField control={form.control} name="service_type" render={({ field }) => (
-                    <FormItem><FormLabel>Service Type</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="job_card_number" render={({ field }) => (
-                    <FormItem><FormLabel>Job Card #</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="vehicle_reg_number" render={({ field }) => (
-                    <FormItem><FormLabel>Vehicle Reg #</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                </div>
-              </div>
-            )}
 
             {/* Bank Payment — Finance Company Details */}
             {invoiceType === "bank_payment" && (
@@ -308,7 +246,12 @@ export function InvoiceForm({
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField control={form.control} name="base_amount" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Base Amount *</FormLabel>
+                    <FormLabel>
+                      {invoiceType === "automobile_sale" ? "Vehicle Sale Value *" :
+                       invoiceType === "tractor_agri_sale" ? "Machine Value *" :
+                       invoiceType === "service" ? "Labour Amount *" :
+                       "Amount *"}
+                    </FormLabel>
                     <FormControl><Input type="number" step="0.01" min="0" {...field} onChange={(e) => field.onChange(e.target.valueAsNumber)} /></FormControl>
                     <FormMessage />
                   </FormItem>
