@@ -1,46 +1,41 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { getUserPermissions } from "@/lib/auth/helpers";
+import { getUserPermissions, getUserAssignments, getAccessibleBranches } from "@/lib/auth/helpers";
 import { getPayrollSummary } from "@/lib/queries/reports";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatINR } from "@/components/shared/currency-display";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Users, Banknote, MinusCircle, Wallet } from "lucide-react";
+import { Users, Banknote, MinusCircle, Wallet, Building2 } from "lucide-react";
+import { ReportScopeSelector } from "../report-scope-selector";
+import { DateRangeFilter } from "../date-range-filter";
 
 const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
 ];
 
-export default async function PayrollReportPage() {
+export default async function PayrollReportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ branch?: string; date_from?: string; date_to?: string }>;
+}) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const permissions = await getUserPermissions(supabase, user.id);
+  const [permissions, assignments] = await Promise.all([
+    getUserPermissions(supabase, user.id),
+    getUserAssignments(supabase, user.id),
+  ]);
+
   const hasAccess =
     permissions.has(PERMISSIONS.REPORTING_BRANCH) ||
     permissions.has(PERMISSIONS.REPORTING_COMPANY);
@@ -48,32 +43,35 @@ export default async function PayrollReportPage() {
 
   const cookieStore = await cookies();
   const companyId = cookieStore.get("scope_company_id")?.value;
-  const branchId = cookieStore.get("scope_branch_id")?.value;
 
   if (!companyId) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Payroll Report"
-          description="Select a company from the header to view payroll report"
-        />
+        <PageHeader title="Payroll Report" description="Select a company from the header" />
       </div>
     );
   }
 
+  const branches = await getAccessibleBranches(supabase, assignments, companyId);
+  const params = await searchParams;
+  const selectedBranch = params.branch || "consolidated";
+  const dateFrom = params.date_from || "";
+  const dateTo = params.date_to || "";
+  const branchIdFilter = selectedBranch === "consolidated" ? null : selectedBranch;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let runs: any[] = [];
   try {
-    runs = await getPayrollSummary(companyId, branchId);
+    runs = await getPayrollSummary(companyId, branchIdFilter, {
+      dateFrom: dateFrom || null,
+      dateTo: dateTo || null,
+    });
   } catch (err) {
     console.error("Failed to load payroll summary:", err);
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Payroll Report"
-          description="Monthly payroll runs with gross, deductions, and net summary"
-        />
-        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950">
+        <PageHeader title="Payroll Report" description="Monthly payroll runs with gross, deductions, and net summary" />
+        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           <strong>Error loading payroll report.</strong> Please refresh the page or contact support.
         </div>
       </div>
@@ -81,76 +79,66 @@ export default async function PayrollReportPage() {
   }
 
   const totalGross = runs.reduce((sum: number, r: any) => sum + (r.total_gross || 0), 0);
-  const totalDeductions = runs.reduce(
-    (sum: number, r: any) => sum + (r.total_deductions || 0),
-    0
-  );
+  const totalDeductions = runs.reduce((sum: number, r: any) => sum + (r.total_deductions || 0), 0);
   const totalNet = runs.reduce((sum: number, r: any) => sum + (r.total_net || 0), 0);
 
-  const summaryCards = [
-    {
-      title: "Total Gross",
-      value: formatINR(totalGross),
-      icon: Banknote,
-    },
-    {
-      title: "Total Deductions",
-      value: formatINR(totalDeductions),
-      icon: MinusCircle,
-    },
-    {
-      title: "Total Net",
-      value: formatINR(totalNet),
-      icon: Wallet,
-    },
-    {
-      title: "Payroll Runs",
-      value: runs.length.toString(),
-      icon: Users,
-    },
-  ];
+  const selectedBranchName =
+    selectedBranch === "consolidated"
+      ? "All Branches — Consolidated"
+      : branches.find((b) => b.id === selectedBranch)?.name || "Branch";
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Payroll Report"
-        description="Monthly payroll runs with gross, deductions, and net summary"
-      />
+      <PageHeader title="Payroll Report" description="Monthly payroll runs with gross, deductions, and net summary" />
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-3 rounded-lg border p-3 bg-muted/30 flex-wrap">
+          <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-sm text-muted-foreground">Scope:</span>
+            <Badge variant={selectedBranch === "consolidated" ? "default" : "secondary"}>
+              {selectedBranchName}
+            </Badge>
+          </div>
+          <ReportScopeSelector branches={branches} selectedBranch={selectedBranch} />
+        </div>
+        <div className="rounded-lg border p-3 bg-muted/30">
+          <Suspense fallback={null}>
+            <DateRangeFilter dateFrom={dateFrom} dateTo={dateTo} />
+          </Suspense>
+        </div>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {summaryCards.map((card) => (
+        {[
+          { title: "Total Gross", value: formatINR(totalGross), icon: Banknote },
+          { title: "Total Deductions", value: formatINR(totalDeductions), icon: MinusCircle },
+          { title: "Total Net", value: formatINR(totalNet), icon: Wallet },
+          { title: "Payroll Runs", value: String(runs.length), icon: Users },
+        ].map((card) => (
           <Card key={card.title}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {card.title}
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
               <card.icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold tabular-nums">
-                {card.value}
-              </div>
+              <div className="text-2xl font-bold tabular-nums">{card.value}</div>
             </CardContent>
           </Card>
         ))}
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Payroll Runs</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Payroll Runs</CardTitle></CardHeader>
         <CardContent>
           {runs.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              No payroll runs found.
-            </p>
+            <p className="text-sm text-muted-foreground py-4 text-center">No payroll runs found.</p>
           ) : (
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Period</TableHead>
-                    <TableHead className="text-right">Employees</TableHead>
                     <TableHead className="text-right">Gross</TableHead>
                     <TableHead className="text-right">Deductions</TableHead>
                     <TableHead className="text-right">Net</TableHead>
@@ -163,21 +151,10 @@ export default async function PayrollReportPage() {
                       <TableCell className="font-medium">
                         {MONTH_NAMES[run.month - 1]} {run.year}
                       </TableCell>
-                      <TableCell className="text-right">
-                        {run.employee_count ?? "-"}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatINR(run.total_gross)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatINR(run.total_deductions)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatINR(run.total_net)}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={run.status} />
-                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(run.total_gross)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(run.total_deductions)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatINR(run.total_net)}</TableCell>
+                      <TableCell><StatusBadge status={run.status} /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

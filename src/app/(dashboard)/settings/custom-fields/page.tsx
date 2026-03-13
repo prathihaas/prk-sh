@@ -11,7 +11,7 @@ import { CustomFieldsColumns } from "./custom-fields-columns";
 export default async function CustomFieldsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ table_name?: string }>;
+  searchParams: Promise<{ entity_type?: string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -38,7 +38,26 @@ export default async function CustomFieldsPage({
   }
 
   const params = await searchParams;
-  const fields = await getCustomFields(companyId, params.table_name);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let fields: any[] = [];
+  try {
+    fields = await getCustomFields(companyId, params.entity_type);
+  } catch (err) {
+    console.error("Failed to load custom fields:", err);
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Custom Fields"
+          description="Manage custom field definitions for your records"
+          action={{ label: "New Field", href: "/settings/custom-fields/new" }}
+        />
+        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950">
+          <strong>Error loading custom fields.</strong> Please refresh the page or contact support.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -50,13 +69,14 @@ export default async function CustomFieldsPage({
       <FilterBar
         filters={[
           {
-            key: "table_name",
-            label: "Table",
+            key: "entity_type",
+            label: "Entity",
             options: [
-              { value: "employees", label: "Employees" },
-              { value: "expenses", label: "Expenses" },
-              { value: "invoices", label: "Invoices" },
-              { value: "cashbook_transactions", label: "Cashbook Transactions" },
+              { value: "cashbook", label: "Cashbook" },
+              { value: "receipt", label: "Receipt" },
+              { value: "payment", label: "Payment" },
+              { value: "invoice", label: "Invoice" },
+              { value: "expense", label: "Expense" },
             ],
           },
         ]}

@@ -17,46 +17,64 @@ import { toggleCustomField } from "@/lib/queries/custom-fields";
 type CustomFieldRow = {
   id: string;
   field_name: string;
-  table_name: string;
+  field_label: string;
+  entity_type: string;
   field_type: string;
-  is_required: boolean;
+  is_mandatory: boolean;
   is_active: boolean;
   display_order: number;
 };
 
-const TABLE_LABELS: Record<string, string> = {
-  employees: "Employees",
-  expenses: "Expenses",
-  invoices: "Invoices",
-  cashbook_transactions: "Cashbook Transactions",
+const ENTITY_LABELS: Record<string, string> = {
+  cashbook: "Cashbook",
+  receipt: "Receipt",
+  payment: "Payment",
+  invoice: "Invoice",
+  expense: "Expense",
+};
+
+const FIELD_TYPE_LABELS: Record<string, string> = {
+  text: "Text",
+  number: "Number",
+  dropdown: "Dropdown",
+  date: "Date",
+  boolean: "Boolean",
 };
 
 const columns: ColumnDef<CustomFieldRow>[] = [
   {
-    accessorKey: "field_name",
-    header: "Field Name",
+    accessorKey: "field_label",
+    header: "Display Label",
   },
   {
-    accessorKey: "table_name",
-    header: "Table",
+    accessorKey: "field_name",
+    header: "Key",
+    cell: ({ row }) => (
+      <code className="text-xs bg-muted px-1 py-0.5 rounded">
+        {row.getValue("field_name")}
+      </code>
+    ),
+  },
+  {
+    accessorKey: "entity_type",
+    header: "Entity",
     cell: ({ row }) =>
-      TABLE_LABELS[row.getValue("table_name") as string] ||
-      row.getValue("table_name"),
+      ENTITY_LABELS[row.getValue("entity_type") as string] ||
+      row.getValue("entity_type"),
   },
   {
     accessorKey: "field_type",
     header: "Type",
-    cell: ({ row }) => {
-      const type = row.getValue("field_type") as string;
-      return type.charAt(0).toUpperCase() + type.slice(1);
-    },
+    cell: ({ row }) =>
+      FIELD_TYPE_LABELS[row.getValue("field_type") as string] ||
+      row.getValue("field_type"),
   },
   {
-    accessorKey: "is_required",
-    header: "Required",
+    accessorKey: "is_mandatory",
+    header: "Mandatory",
     cell: ({ row }) => (
       <StatusBadge
-        status={row.getValue("is_required") ? "required" : "optional"}
+        status={row.getValue("is_mandatory") ? "required" : "optional"}
       />
     ),
   },

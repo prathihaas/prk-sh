@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import Link from "next/link";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import {
   getUserPermissions,
@@ -21,6 +22,7 @@ import { Receipt, CheckCircle2, Clock, BarChart3, Building2, ChevronLeft } from 
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/shared/export-button";
 import { ReportScopeSelector } from "../report-scope-selector";
+import { DateRangeFilter } from "../date-range-filter";
 
 const EXPORT_COLUMNS = [
   { key: "expense_date", header: "Date", width: 14, format: "date" as const },
@@ -32,12 +34,10 @@ const EXPORT_COLUMNS = [
 export default async function ExpenseReportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ branch?: string }>;
+  searchParams: Promise<{ branch?: string; date_from?: string; date_to?: string }>;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   const [permissions, assignments] = await Promise.all([
@@ -64,21 +64,26 @@ export default async function ExpenseReportPage({
   const branches = await getAccessibleBranches(supabase, assignments, companyId);
   const params = await searchParams;
   const selectedBranch = params.branch || "consolidated";
-
+  const dateFrom = params.date_from || "";
+  const dateTo = params.date_to || "";
   const branchIdFilter = selectedBranch === "consolidated" ? null : selectedBranch;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let expenses: any[] = [];
   let summary = { totalExpenses: 0, approvedExpenses: 0, pendingExpenses: 0, count: 0 };
   try {
-    const result = await getExpenseSummary(companyId, branchIdFilter);
+    const result = await getExpenseSummary(companyId, branchIdFilter, {
+      dateFrom: dateFrom || null,
+      dateTo: dateTo || null,
+    });
     expenses = result.expenses as any[];
     summary = result.summary;
   } catch (err) {
     console.error("Failed to load expense summary:", err);
     return (
       <div className="space-y-6">
-        <PageHeader title="Expense Report" description="Expense tracking with category breakdown and approval status" />
-        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950">
+        <PageHeader title="Expense Report" description="Expense tracking with category breakdown" />
+        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           <strong>Error loading expense report.</strong> Please refresh the page or contact support.
         </div>
       </div>
@@ -90,7 +95,6 @@ export default async function ExpenseReportPage({
       ? "All Branches — Consolidated"
       : branches.find((b) => b.id === selectedBranch)?.name || "Branch";
 
-  // Category breakdown
   const categoryMap = new Map<string, { name: string; total: number; count: number }>();
   for (const exp of expenses) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,7 +107,6 @@ export default async function ExpenseReportPage({
   }
   const categoryBreakdown = Array.from(categoryMap.values()).sort((a, b) => b.total - a.total);
 
-  // Flatten for export
   const exportData = (expenses as Record<string, unknown>[]).map((exp) => ({
     ...exp,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -130,16 +133,22 @@ export default async function ExpenseReportPage({
         />
       </div>
 
-      {/* Scope bar */}
-      <div className="flex items-center gap-3 rounded-lg border p-3 bg-muted/30 flex-wrap">
-        <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-sm text-muted-foreground">Scope:</span>
-          <Badge variant={selectedBranch === "consolidated" ? "default" : "secondary"}>
-            {selectedBranchName}
-          </Badge>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-3 rounded-lg border p-3 bg-muted/30 flex-wrap">
+          <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-sm text-muted-foreground">Scope:</span>
+            <Badge variant={selectedBranch === "consolidated" ? "default" : "secondary"}>
+              {selectedBranchName}
+            </Badge>
+          </div>
+          <ReportScopeSelector branches={branches} selectedBranch={selectedBranch} />
         </div>
-        <ReportScopeSelector branches={branches} selectedBranch={selectedBranch} />
+        <div className="rounded-lg border p-3 bg-muted/30">
+          <Suspense fallback={null}>
+            <DateRangeFilter dateFrom={dateFrom} dateTo={dateTo} />
+          </Suspense>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -209,14 +218,11 @@ export default async function ExpenseReportPage({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {expenses.slice(0, 20).map((exp: any) => {
                       const category = exp.category as { name: string } | null;
                       return (
                         <TableRow key={exp.id}>
-                          <TableCell>
-                            {new Date(exp.expense_date).toLocaleDateString("en-IN")}
-                          </TableCell>
+                          <TableCell>{new Date(exp.expense_date).toLocaleDateString("en-IN")}</TableCell>
                           <TableCell>{category?.name || "—"}</TableCell>
                           <TableCell className="text-right tabular-nums">{formatINR(exp.amount)}</TableCell>
                           <TableCell><StatusBadge status={exp.approval_status} /></TableCell>

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import Link from "next/link";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import {
   getUserPermissions,
@@ -23,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/shared/export-button";
 import { ReportScopeSelector } from "../report-scope-selector";
+import { DateRangeFilter } from "../date-range-filter";
 
 const EXPORT_COLUMNS = [
   { key: "day_date", header: "Date", width: 14, format: "date" as const },
@@ -37,12 +39,10 @@ const EXPORT_COLUMNS = [
 export default async function CashSummaryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ branch?: string }>;
+  searchParams: Promise<{ branch?: string; date_from?: string; date_to?: string }>;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   const [permissions, assignments] = await Promise.all([
@@ -69,19 +69,23 @@ export default async function CashSummaryPage({
   const branches = await getAccessibleBranches(supabase, assignments, companyId);
   const params = await searchParams;
   const selectedBranch = params.branch || "consolidated";
-
+  const dateFrom = params.date_from || "";
+  const dateTo = params.date_to || "";
   const branchIdFilter = selectedBranch === "consolidated" ? null : selectedBranch;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let cashDays: any[] = [];
   try {
-    cashDays = await getCashSummary(companyId, branchIdFilter) as any[];
+    cashDays = await getCashSummary(companyId, branchIdFilter, {
+      dateFrom: dateFrom || null,
+      dateTo: dateTo || null,
+    }) as any[];
   } catch (err) {
     console.error("Failed to load cash summary:", err);
     return (
       <div className="space-y-6">
         <PageHeader title="Cash Summary" description="Daily cashbook balances and transaction overview" />
-        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950">
+        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           <strong>Error loading cash summary.</strong> Please refresh the page or contact support.
         </div>
       </div>
@@ -122,16 +126,22 @@ export default async function CashSummaryPage({
         />
       </div>
 
-      {/* Scope bar */}
-      <div className="flex items-center gap-3 rounded-lg border p-3 bg-muted/30 flex-wrap">
-        <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-sm text-muted-foreground">Scope:</span>
-          <Badge variant={selectedBranch === "consolidated" ? "default" : "secondary"}>
-            {selectedBranchName}
-          </Badge>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-3 rounded-lg border p-3 bg-muted/30 flex-wrap">
+          <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-sm text-muted-foreground">Scope:</span>
+            <Badge variant={selectedBranch === "consolidated" ? "default" : "secondary"}>
+              {selectedBranchName}
+            </Badge>
+          </div>
+          <ReportScopeSelector branches={branches} selectedBranch={selectedBranch} />
         </div>
-        <ReportScopeSelector branches={branches} selectedBranch={selectedBranch} />
+        <div className="rounded-lg border p-3 bg-muted/30">
+          <Suspense fallback={null}>
+            <DateRangeFilter dateFrom={dateFrom} dateTo={dateTo} />
+          </Suspense>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import Link from "next/link";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import {
   getUserPermissions,
@@ -23,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/shared/export-button";
 import { ReportScopeSelector } from "../report-scope-selector";
+import { DateRangeFilter } from "../date-range-filter";
 
 const EXPORT_COLUMNS = [
   { key: "dms_invoice_number", header: "Invoice #", width: 18 },
@@ -36,12 +38,10 @@ const EXPORT_COLUMNS = [
 export default async function RevenuePage({
   searchParams,
 }: {
-  searchParams: Promise<{ branch?: string }>;
+  searchParams: Promise<{ branch?: string; date_from?: string; date_to?: string }>;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   const [permissions, assignments] = await Promise.all([
@@ -68,14 +68,18 @@ export default async function RevenuePage({
   const branches = await getAccessibleBranches(supabase, assignments, companyId);
   const params = await searchParams;
   const selectedBranch = params.branch || "consolidated";
-
+  const dateFrom = params.date_from || "";
+  const dateTo = params.date_to || "";
   const branchIdFilter = selectedBranch === "consolidated" ? null : selectedBranch;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let invoices: any[] = [];
   let summary = { totalRevenue: 0, totalOutstanding: 0, totalCollected: 0, count: 0 };
   try {
-    const result = await getRevenueSummary(companyId, branchIdFilter);
+    const result = await getRevenueSummary(companyId, branchIdFilter, {
+      dateFrom: dateFrom || null,
+      dateTo: dateTo || null,
+    });
     invoices = result.invoices as any[];
     summary = result.summary;
   } catch (err) {
@@ -83,7 +87,7 @@ export default async function RevenuePage({
     return (
       <div className="space-y-6">
         <PageHeader title="Revenue Report" description="Invoice revenue, collections and outstanding analysis" />
-        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950">
+        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           <strong>Error loading revenue report.</strong> Please refresh the page or contact support.
         </div>
       </div>
@@ -115,16 +119,22 @@ export default async function RevenuePage({
         />
       </div>
 
-      {/* Scope bar */}
-      <div className="flex items-center gap-3 rounded-lg border p-3 bg-muted/30 flex-wrap">
-        <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-sm text-muted-foreground">Scope:</span>
-          <Badge variant={selectedBranch === "consolidated" ? "default" : "secondary"}>
-            {selectedBranchName}
-          </Badge>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-3 rounded-lg border p-3 bg-muted/30 flex-wrap">
+          <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-sm text-muted-foreground">Scope:</span>
+            <Badge variant={selectedBranch === "consolidated" ? "default" : "secondary"}>
+              {selectedBranchName}
+            </Badge>
+          </div>
+          <ReportScopeSelector branches={branches} selectedBranch={selectedBranch} />
         </div>
-        <ReportScopeSelector branches={branches} selectedBranch={selectedBranch} />
+        <div className="rounded-lg border p-3 bg-muted/30">
+          <Suspense fallback={null}>
+            <DateRangeFilter dateFrom={dateFrom} dateTo={dateTo} />
+          </Suspense>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -165,7 +175,6 @@ export default async function RevenuePage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {invoices.map((inv: any) => (
                     <TableRow key={inv.id}>
                       <TableCell className="font-medium">{inv.dms_invoice_number || "—"}</TableCell>

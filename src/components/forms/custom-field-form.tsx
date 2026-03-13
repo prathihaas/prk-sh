@@ -33,19 +33,20 @@ import {
 } from "@/components/ui/form";
 import { FormCard } from "@/components/shared/form-card";
 
-const TABLE_OPTIONS = [
-  { value: "employees", label: "Employees" },
-  { value: "expenses", label: "Expenses" },
-  { value: "invoices", label: "Invoices" },
-  { value: "cashbook_transactions", label: "Cashbook Transactions" },
+const ENTITY_OPTIONS = [
+  { value: "cashbook", label: "Cashbook" },
+  { value: "receipt", label: "Receipt" },
+  { value: "payment", label: "Payment" },
+  { value: "invoice", label: "Invoice" },
+  { value: "expense", label: "Expense" },
 ];
 
 const FIELD_TYPES = [
   { value: "text", label: "Text" },
   { value: "number", label: "Number" },
   { value: "date", label: "Date" },
-  { value: "boolean", label: "Boolean" },
-  { value: "select", label: "Select (Dropdown)" },
+  { value: "boolean", label: "Boolean (Yes/No)" },
+  { value: "dropdown", label: "Dropdown" },
 ];
 
 interface CustomFieldFormProps {
@@ -61,13 +62,14 @@ export function CustomFieldForm({ companyId, field }: CustomFieldFormProps) {
   const form = useForm<CustomFieldFormValues>({
     resolver: zodResolver(customFieldSchema),
     defaultValues: {
-      table_name: (field?.table_name as string) || "",
+      entity_type: (field?.entity_type as "cashbook" | "receipt" | "payment" | "invoice" | "expense") || "invoice",
       field_name: (field?.field_name as string) || "",
-      field_type: (field?.field_type as string) || "",
-      field_options: field?.field_options
-        ? (field.field_options as string[]).join(", ")
+      field_label: (field?.field_label as string) || "",
+      field_type: (field?.field_type as "text" | "number" | "dropdown" | "date" | "boolean") || "text",
+      dropdown_options: field?.dropdown_options
+        ? (field.dropdown_options as string[]).join(", ")
         : "",
-      is_required: (field?.is_required as boolean) ?? false,
+      is_mandatory: (field?.is_mandatory as boolean) ?? false,
       display_order: (field?.display_order as number) ?? 0,
     },
   });
@@ -105,7 +107,7 @@ export function CustomFieldForm({ companyId, field }: CustomFieldFormProps) {
       description={
         isEditing
           ? "Update custom field definition"
-          : "Define a new custom field for a table"
+          : "Define a new custom field for a record type"
       }
     >
       <Form {...form}>
@@ -113,21 +115,21 @@ export function CustomFieldForm({ companyId, field }: CustomFieldFormProps) {
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
-              name="table_name"
+              name="entity_type"
               render={({ field: formField }) => (
                 <FormItem>
-                  <FormLabel>Table *</FormLabel>
+                  <FormLabel>Entity Type *</FormLabel>
                   <Select
                     onValueChange={formField.onChange}
                     value={formField.value}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select table" />
+                        <SelectValue placeholder="Select entity" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {TABLE_OPTIONS.map((opt) => (
+                      {ENTITY_OPTIONS.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           {opt.label}
                         </SelectItem>
@@ -138,21 +140,6 @@ export function CustomFieldForm({ companyId, field }: CustomFieldFormProps) {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="field_name"
-              render={({ field: formField }) => (
-                <FormItem>
-                  <FormLabel>Field Name *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. Department Code" {...formField} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
               name="field_type"
@@ -180,35 +167,72 @@ export function CustomFieldForm({ companyId, field }: CustomFieldFormProps) {
                 </FormItem>
               )}
             />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
-              name="display_order"
+              name="field_name"
               render={({ field: formField }) => (
                 <FormItem>
-                  <FormLabel>Display Order *</FormLabel>
+                  <FormLabel>Field Key *</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      {...formField}
-                      onChange={(e) =>
-                        formField.onChange(e.target.valueAsNumber)
-                      }
-                    />
+                    <Input placeholder="e.g. department_code" {...formField} />
                   </FormControl>
+                  <FormDescription>
+                    Internal key (no spaces, use underscores)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="field_label"
+              render={({ field: formField }) => (
+                <FormItem>
+                  <FormLabel>Display Label *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. Department Code" {...formField} />
+                  </FormControl>
+                  <FormDescription>
+                    Label shown to users in forms
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
           </div>
-          {watchFieldType === "select" && (
+
+          <FormField
+            control={form.control}
+            name="display_order"
+            render={({ field: formField }) => (
+              <FormItem className="max-w-xs">
+                <FormLabel>Display Order *</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    {...formField}
+                    onChange={(e) =>
+                      formField.onChange(e.target.valueAsNumber)
+                    }
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {watchFieldType === "dropdown" && (
             <FormField
               control={form.control}
-              name="field_options"
+              name="dropdown_options"
               render={({ field: formField }) => (
                 <FormItem>
-                  <FormLabel>Options</FormLabel>
+                  <FormLabel>Dropdown Options</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Option A, Option B, Option C"
@@ -224,15 +248,16 @@ export function CustomFieldForm({ companyId, field }: CustomFieldFormProps) {
               )}
             />
           )}
+
           <FormField
             control={form.control}
-            name="is_required"
+            name="is_mandatory"
             render={({ field: formField }) => (
               <FormItem className="flex items-center justify-between rounded-lg border p-4">
                 <div className="space-y-0.5">
-                  <FormLabel className="text-base">Required</FormLabel>
+                  <FormLabel className="text-base">Mandatory</FormLabel>
                   <p className="text-sm text-muted-foreground">
-                    Make this field mandatory when creating records
+                    Make this field required when creating records
                   </p>
                 </div>
                 <FormControl>
@@ -244,6 +269,7 @@ export function CustomFieldForm({ companyId, field }: CustomFieldFormProps) {
               </FormItem>
             )}
           />
+
           <div className="flex gap-4">
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? (

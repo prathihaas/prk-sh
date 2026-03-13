@@ -2,14 +2,18 @@
 
 import { createClient } from "@/lib/supabase/server";
 
+interface DateRange {
+  dateFrom?: string | null;
+  dateTo?: string | null;
+}
+
 export async function getCashSummary(
   companyId: string,
-  branchId?: string | null
+  branchId?: string | null,
+  { dateFrom, dateTo }: DateRange = {}
 ) {
   const supabase = await createClient();
 
-  // cashbook_days has: id, date, opening_balance, system_closing, status
-  // (no day_date, closing_balance, total_receipts, or total_payments columns)
   let query = supabase
     .from("cashbook_days")
     .select(
@@ -17,15 +21,16 @@ export async function getCashSummary(
     )
     .eq("company_id", companyId)
     .order("date", { ascending: false })
-    .limit(50);
+    .limit(200);
 
   if (branchId) query = query.eq("branch_id", branchId);
+  if (dateFrom) query = query.gte("date", dateFrom);
+  if (dateTo) query = query.lte("date", dateTo);
 
   const { data: days, error: daysError } = await query;
   if (daysError) throw daysError;
   if (!days || days.length === 0) return [];
 
-  // Aggregate receipt/payment totals from cashbook_transactions (txn_type: receipt | payment)
   const dayIds = days.map((d: { id: string }) => d.id);
   const { data: txns, error: txnError } = await supabase
     .from("cashbook_transactions")
@@ -46,7 +51,6 @@ export async function getCashSummary(
     aggregates.set(txn.cashbook_day_id, agg);
   }
 
-  // Return with aliased fields for UI compatibility
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (days as any[]).map((day) => ({
     ...day,
@@ -59,50 +63,43 @@ export async function getCashSummary(
 
 export async function getRevenueSummary(
   companyId: string,
-  branchId?: string | null
+  branchId?: string | null,
+  { dateFrom, dateTo }: DateRange = {}
 ) {
   const supabase = await createClient();
-  // DB columns: dms_invoice_number (not invoice_number), grand_total (not total_amount),
-  // approval_status (not status). balance_due is a generated column.
   let query = supabase
     .from("invoices")
     .select(
-      "id, dms_invoice_number, customer_name, grand_total, balance_due, approval_status, invoice_date"
+      "id, dms_invoice_number, customer_name, grand_total, balance_due, approval_status, invoice_date, invoice_type"
     )
     .eq("company_id", companyId)
     .eq("is_cancelled", false)
     .order("invoice_date", { ascending: false })
-    .limit(100);
+    .limit(500);
 
   if (branchId) query = query.eq("branch_id", branchId);
+  if (dateFrom) query = query.gte("invoice_date", dateFrom);
+  if (dateTo) query = query.lte("invoice_date", dateTo);
 
   const { data, error } = await query;
   if (error) throw error;
 
-  const totalRevenue = (data || []).reduce(
-    (sum: number, inv: any) => sum + (inv.grand_total || 0),
-    0
-  );
-  const totalOutstanding = (data || []).reduce(
-    (sum: number, inv: any) => sum + (inv.balance_due || 0),
-    0
-  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const invoices = (data || []) as any[];
+  const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.grand_total || 0), 0);
+  const totalOutstanding = invoices.reduce((sum, inv) => sum + (inv.balance_due || 0), 0);
   const totalCollected = totalRevenue - totalOutstanding;
 
   return {
-    invoices: data || [],
-    summary: {
-      totalRevenue,
-      totalOutstanding,
-      totalCollected,
-      count: (data || []).length,
-    },
+    invoices,
+    summary: { totalRevenue, totalOutstanding, totalCollected, count: invoices.length },
   };
 }
 
 export async function getExpenseSummary(
   companyId: string,
-  branchId?: string | null
+  branchId?: string | null,
+  { dateFrom, dateTo }: DateRange = {}
 ) {
   const supabase = await createClient();
   let query = supabase
@@ -112,50 +109,49 @@ export async function getExpenseSummary(
     )
     .eq("company_id", companyId)
     .order("expense_date", { ascending: false })
-    .limit(200);
+    .limit(500);
 
   if (branchId) query = query.eq("branch_id", branchId);
+  if (dateFrom) query = query.gte("expense_date", dateFrom);
+  if (dateTo) query = query.lte("expense_date", dateTo);
 
   const { data, error } = await query;
   if (error) throw error;
 
-  const expenses = data || [];
-  const totalExpenses = expenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const expenses = (data || []) as any[];
+  const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
   const approvedExpenses = expenses
-    .filter((e: any) => e.approval_status === "owner_approved")
-    .reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
+    .filter((e) => e.approval_status === "owner_approved")
+    .reduce((sum, e) => sum + (e.amount || 0), 0);
   const pendingExpenses = expenses
-    .filter(
-      (e: any) => !["owner_approved", "rejected"].includes(e.approval_status)
-    )
-    .reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
+    .filter((e) => !["owner_approved", "rejected"].includes(e.approval_status))
+    .reduce((sum, e) => sum + (e.amount || 0), 0);
 
   return {
     expenses,
-    summary: {
-      totalExpenses,
-      approvedExpenses,
-      pendingExpenses,
-      count: expenses.length,
-    },
+    summary: { totalExpenses, approvedExpenses, pendingExpenses, count: expenses.length },
   };
 }
 
 export async function getPayrollSummary(
   companyId: string,
-  branchId?: string | null
+  branchId?: string | null,
+  { dateFrom, dateTo }: DateRange = {}
 ) {
   const supabase = await createClient();
-  // payroll_runs has no employee_count column — removed from select
   let query = supabase
     .from("payroll_runs")
     .select("id, month, year, total_gross, total_deductions, total_net, status")
     .eq("company_id", companyId)
     .order("year", { ascending: false })
     .order("month", { ascending: false })
-    .limit(24);
+    .limit(60);
 
   if (branchId) query = query.eq("branch_id", branchId);
+  // Filter payroll by year/month using date range on a synthetic date
+  if (dateFrom) query = query.gte("created_at", dateFrom);
+  if (dateTo) query = query.lte("created_at", dateTo);
 
   const { data, error } = await query;
   if (error) throw error;
