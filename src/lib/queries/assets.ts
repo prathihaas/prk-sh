@@ -3,24 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
-
-export const assetCategorySchema = z.object({
-  name: z.string().min(1, "Name is required").max(100),
-  description: z.string().max(500).optional().or(z.literal("")),
-});
-
-export const assetSchema = z.object({
-  asset_code: z.string().min(1, "Asset code is required").max(50),
-  name: z.string().min(1, "Name is required").max(200),
-  description: z.string().max(1000).optional().or(z.literal("")),
-  category_id: z.string().uuid().optional().or(z.literal("")),
-  is_vehicle: z.boolean(),
-  purchase_date: z.string().optional().or(z.literal("")),
-  purchase_value: z.number().min(0).optional(),
-  useful_life_years: z.number().int().min(1).max(99).optional(),
-  salvage_value: z.number().min(0).optional(),
-  branch_id: z.string().uuid().optional().or(z.literal("")),
-});
+import { assetSchema } from "@/lib/validators/asset";
 
 export async function getAssets(companyId: string, branchId?: string | null) {
   const supabase = await createClient();
