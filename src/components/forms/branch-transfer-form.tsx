@@ -68,7 +68,7 @@ export function BranchTransferForm({
       to_company_id: "",
       to_branch_id: "",
       transfer_date: new Date().toISOString().split("T")[0],
-      narration: "",
+      notes: "",
       items: [{ ...DEFAULT_ITEM }],
     },
   });
@@ -80,6 +80,8 @@ export function BranchTransferForm({
 
   const watchItems = form.watch("items");
   const watchToCompanyId = form.watch("to_company_id");
+  const watchTransferType = form.watch("transfer_type");
+  const isInterCompany = watchTransferType === "inter_company";
 
   useEffect(() => {
     const company = companies.find((c) => c.id === watchToCompanyId);
@@ -188,18 +190,29 @@ export function BranchTransferForm({
               name="to_branch_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>To Branch *</FormLabel>
+                  <FormLabel>
+                    To Branch {isInterCompany ? <span className="text-muted-foreground text-xs">(optional)</span> : "*"}
+                  </FormLabel>
                   <Select
                     onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={toBranches.length === 0}
+                    value={field.value ?? ""}
+                    disabled={!watchToCompanyId}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder={toBranches.length === 0 ? "Select company first" : "Select branch"} />
+                        <SelectValue placeholder={
+                          !watchToCompanyId
+                            ? "Select company first"
+                            : isInterCompany
+                            ? "Any branch (optional)"
+                            : "Select branch"
+                        } />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      {isInterCompany && (
+                        <SelectItem value="">Any / No specific branch</SelectItem>
+                      )}
                       {toBranches.map((b) => (
                         <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
                       ))}
@@ -213,10 +226,10 @@ export function BranchTransferForm({
 
           <FormField
             control={form.control}
-            name="narration"
+            name="notes"
             render={({ field }) => (
               <FormItem className="mt-4">
-                <FormLabel>Narration / Notes</FormLabel>
+                <FormLabel>Notes / Narration</FormLabel>
                 <FormControl>
                   <Textarea rows={2} placeholder="Reason for transfer..." {...field} />
                 </FormControl>

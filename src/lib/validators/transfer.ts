@@ -11,14 +11,27 @@ export const transferItemSchema = z.object({
   notes: z.string().max(500).optional().or(z.literal("")),
 });
 
-export const branchTransferSchema = z.object({
-  transfer_type: z.enum(["inter_branch", "inter_company"]),
-  to_company_id: z.string().min(1, "Select destination company"),
-  to_branch_id: z.string().min(1, "Select destination branch"),
-  transfer_date: z.string().min(1, "Transfer date required"),
-  narration: z.string().max(1000).optional().or(z.literal("")),
-  items: z.array(transferItemSchema).min(1, "Add at least one item"),
-});
+export const branchTransferSchema = z
+  .object({
+    transfer_type: z.enum(["inter_branch", "inter_company"]),
+    to_company_id: z.string().min(1, "Select destination company"),
+    // Optional by default — required only for inter_branch (validated below with .superRefine)
+    to_branch_id: z.string().optional().or(z.literal("")),
+    transfer_date: z.string().min(1, "Transfer date required"),
+    // DB column is "notes" (not narration)
+    notes: z.string().max(1000).optional().or(z.literal("")),
+    items: z.array(transferItemSchema).min(1, "Add at least one item"),
+  })
+  .superRefine((data, ctx) => {
+    // For inter_branch transfers, destination branch is required
+    if (data.transfer_type === "inter_branch" && !data.to_branch_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Select destination branch",
+        path: ["to_branch_id"],
+      });
+    }
+  });
 
 export type TransferItemFormValues = z.infer<typeof transferItemSchema>;
 export type BranchTransferFormValues = z.infer<typeof branchTransferSchema>;
