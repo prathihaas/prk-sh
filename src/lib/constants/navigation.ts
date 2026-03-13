@@ -25,6 +25,8 @@ import {
   Users2,
   ArrowLeftRight,
   UserRound,
+  Package,
+  QrCode,
 } from "lucide-react";
 import { PERMISSIONS } from "./permissions";
 import type { NavSection } from "@/types/navigation";
@@ -216,6 +218,23 @@ export const navigationItems: NavSection[] = [
         href: "/reports",
         icon: BarChart3,
         permission: PERMISSIONS.REPORTING_BRANCH,
+      },
+    ],
+  },
+  {
+    label: "Asset Register",
+    items: [
+      {
+        title: "All Assets",
+        href: "/assets",
+        icon: Package,
+        permission: PERMISSIONS.ASSET_VIEW,
+      },
+      {
+        title: "Categories",
+        href: "/assets/categories",
+        icon: QrCode,
+        permission: PERMISSIONS.ASSET_CREATE,
       },
     ],
   },

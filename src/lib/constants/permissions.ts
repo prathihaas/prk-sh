@@ -84,4 +84,11 @@ export const PERMISSIONS = {
   CASHBOOK_TRANSFER_CREATE: "cashbook_transfer:create",
   CASHBOOK_TRANSFER_VIEW: "cashbook_transfer:view",
   CASHBOOK_TRANSFER_APPROVE: "cashbook_transfer:approve",
+
+  // Asset Register
+  ASSET_VIEW: "asset:view",
+  ASSET_CREATE: "asset:create",
+  ASSET_UPDATE: "asset:update",
+  ASSET_AUDIT: "asset:audit",
+  ASSET_ASSIGN: "asset:assign",
 } as const;
