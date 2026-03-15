@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserPermissions } from "@/lib/auth/helpers";
 import { getCashbook, getCashbooks } from "@/lib/queries/cashbooks";
 import { getCashbookDay } from "@/lib/queries/cashbook-days";
+import { getCustomersForSelect } from "@/lib/queries/customers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { CashbookTransactionForm } from "@/components/forms/cashbook-transaction-form";
 import { PageHeader } from "@/components/shared/page-header";
@@ -45,25 +46,24 @@ export default async function NewTransactionPage({
     );
   }
 
-  // Get other cashbooks in same branch for contra transfers
-  const allCashbooks = await getCashbooks(
-    cashbook.company_id,
-    cashbook.branch_id
-  );
+  // Get other cashbooks, customers, and financial year in parallel
+  const cookieStore = await cookies();
+  const [allCashbooks, customers, { data: fy }] = await Promise.all([
+    getCashbooks(cashbook.company_id, cashbook.branch_id),
+    getCustomersForSelect(cashbook.company_id),
+    supabase
+      .from("financial_years")
+      .select("id")
+      .eq("company_id", cashbook.company_id)
+      .eq("is_locked", false)
+      .order("start_date", { ascending: false })
+      .limit(1)
+      .single(),
+  ]);
+
   const otherCashbooks = allCashbooks
     .filter((cb: any) => cb.id !== cashbookId && cb.is_active)
     .map((cb: any) => ({ id: cb.id, name: cb.name }));
-
-  // Get current financial year
-  const cookieStore = await cookies();
-  const { data: fy } = await supabase
-    .from("financial_years")
-    .select("id")
-    .eq("company_id", cashbook.company_id)
-    .eq("is_locked", false)
-    .order("start_date", { ascending: false })
-    .limit(1)
-    .single();
 
   return (
     <div className="space-y-6">
@@ -78,6 +78,7 @@ export default async function NewTransactionPage({
         branchId={cashbook.branch_id}
         financialYearId={fy?.id}
         currentUserId={user.id}
+        customers={customers}
         otherCashbooks={otherCashbooks}
       />
     </div>

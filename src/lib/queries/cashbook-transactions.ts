@@ -68,6 +68,7 @@ export async function createTransaction(
     amount: validated.amount,
     payment_mode: validated.payment_mode,
     narration: validated.narration,
+    party_name: validated.party_name || null,
     contra_cashbook_id: validated.contra_cashbook_id || null,
     receipt_number: "PENDING", // Trigger generates this
     receipt_hash: "PENDING", // Trigger generates this

@@ -5,6 +5,7 @@ export const invoiceSchema = z.object({
   invoice_type: z.enum(["automobile_sale", "tractor_agri_sale", "service", "bank_payment", "other_income"], {
     error: "Select invoice type",
   }),
+  customer_id: z.string().uuid().optional().or(z.literal("")),
   customer_name: z.string().min(1, "Customer name is required").max(300),
   customer_gstin: z.string().max(15).optional().or(z.literal("")),
   customer_phone: z.string().max(15).optional().or(z.literal("")),

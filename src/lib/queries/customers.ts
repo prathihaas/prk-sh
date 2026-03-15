@@ -157,6 +157,24 @@ export async function updateCustomer(
   return { success: true };
 }
 
+/** Lean list of active customers for dropdown/combobox use — company-scoped, branch-shared */
+export async function getCustomersForSelect(companyId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("customers")
+    .select("id, full_name, customer_code, phone, gstin")
+    .eq("company_id", companyId)
+    .eq("is_active", true)
+    .order("full_name");
+  return (data || []) as {
+    id: string;
+    full_name: string;
+    customer_code: string;
+    phone: string | null;
+    gstin: string | null;
+  }[];
+}
+
 export async function toggleCustomerActive(id: string, is_active: boolean) {
   const supabase = await createClient();
   const { error } = await supabase

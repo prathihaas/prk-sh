@@ -29,12 +29,17 @@ import {
 } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { formatINR } from "@/components/shared/currency-display";
+import {
+  CustomerPickerWithCreate,
+  type CustomerOption,
+} from "@/components/shared/customer-picker";
 
 interface InvoiceFormProps {
   companyId: string;
   branchId: string;
   currentUserId: string;
   financialYearId: string;
+  customers: CustomerOption[];
   invoice?: Record<string, unknown>;
 }
 
@@ -54,6 +59,7 @@ export function InvoiceForm({
   branchId,
   currentUserId,
   financialYearId,
+  customers,
   invoice,
 }: InvoiceFormProps) {
   const router = useRouter();
@@ -64,6 +70,7 @@ export function InvoiceForm({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
       invoice_type: (invoice?.invoice_type as "automobile_sale" | "tractor_agri_sale" | "service" | "bank_payment" | "other_income") || "automobile_sale",
+      customer_id: (invoice?.customer_id as string) || "",
       customer_name: (invoice?.customer_name as string) || "",
       customer_gstin: (invoice?.customer_gstin as string) || "",
       customer_phone: (invoice?.customer_phone as string) || "",
@@ -81,11 +88,23 @@ export function InvoiceForm({
   });
 
   const invoiceType = useWatch({ control: form.control, name: "invoice_type" });
+  const customerId = useWatch({ control: form.control, name: "customer_id" });
   const baseAmount = useWatch({ control: form.control, name: "base_amount" }) || 0;
   const discountAmount = useWatch({ control: form.control, name: "discount_amount" }) || 0;
   const taxBreakup = useWatch({ control: form.control, name: "tax_breakup" });
   const taxTotal = (taxBreakup?.cgst || 0) + (taxBreakup?.sgst || 0) + (taxBreakup?.igst || 0) + (taxBreakup?.cess || 0);
   const grandTotal = baseAmount - discountAmount + taxTotal;
+
+  function handleCustomerSelect(customer: CustomerOption | null) {
+    if (customer) {
+      form.setValue("customer_id", customer.id);
+      form.setValue("customer_name", customer.full_name);
+      form.setValue("customer_phone", customer.phone ?? "");
+      form.setValue("customer_gstin", customer.gstin ?? "");
+    } else {
+      form.setValue("customer_id", "");
+    }
+  }
 
   async function onSubmit(values: InvoiceFormValues) {
     setIsSubmitting(true);
@@ -165,6 +184,26 @@ export function InvoiceForm({
               <h3 className="text-lg font-medium mb-4">
                 {invoiceType === "bank_payment" ? "Finance Company / Bank Details" : "Customer Information"}
               </h3>
+
+              {invoiceType !== "bank_payment" && (
+                <div className="mb-4">
+                  <p className="text-sm font-medium mb-1.5">Select Customer</p>
+                  <CustomerPickerWithCreate
+                    customers={customers}
+                    companyId={companyId}
+                    currentUserId={currentUserId}
+                    value={customerId || undefined}
+                    onSelect={handleCustomerSelect}
+                    placeholder="Search customers or create new..."
+                  />
+                  {customerId && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Fields below are auto-filled from the selected customer — you can still edit them.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField control={form.control} name="customer_name" render={({ field }) => (
                   <FormItem>
@@ -192,7 +231,6 @@ export function InvoiceForm({
 
             <Separator />
 
-            {/* Bank Payment — Finance Company Details */}
             {invoiceType === "bank_payment" && (
               <div>
                 <h3 className="text-lg font-medium mb-4">Finance / Bank Details</h3>
@@ -215,7 +253,6 @@ export function InvoiceForm({
               </div>
             )}
 
-            {/* Other Income */}
             {invoiceType === "other_income" && (
               <div>
                 <h3 className="text-lg font-medium mb-4">Income Details</h3>

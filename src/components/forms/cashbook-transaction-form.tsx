@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -33,6 +33,10 @@ import {
 import { FormCard } from "@/components/shared/form-card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import {
+  CustomerPickerWithCreate,
+  type CustomerOption,
+} from "@/components/shared/customer-picker";
 
 interface CashbookTransactionFormProps {
   cashbookId: string;
@@ -41,6 +45,7 @@ interface CashbookTransactionFormProps {
   branchId: string;
   financialYearId?: string;
   currentUserId: string;
+  customers: CustomerOption[];
   otherCashbooks?: { id: string; name: string }[];
 }
 
@@ -60,6 +65,7 @@ export function CashbookTransactionForm({
   branchId,
   financialYearId,
   currentUserId,
+  customers,
   otherCashbooks = [],
 }: CashbookTransactionFormProps) {
   const router = useRouter();
@@ -72,9 +78,22 @@ export function CashbookTransactionForm({
       amount: 0,
       payment_mode: "cash",
       narration: "",
+      party_name: "",
+      customer_id: "",
       contra_cashbook_id: "",
     },
   });
+
+  const customerId = useWatch({ control: form.control, name: "customer_id" });
+
+  function handleCustomerSelect(customer: CustomerOption | null) {
+    if (customer) {
+      form.setValue("customer_id", customer.id);
+      form.setValue("party_name", customer.full_name);
+    } else {
+      form.setValue("customer_id", "");
+    }
+  }
 
   async function onSubmit(values: CashbookTransactionFormValues) {
     setIsSubmitting(true);
@@ -139,6 +158,38 @@ export function CashbookTransactionForm({
               </FormItem>
             )}
           />
+
+          {/* Party Name — select from customers or type manually */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Party Name</p>
+            <CustomerPickerWithCreate
+              customers={customers}
+              companyId={companyId}
+              currentUserId={currentUserId}
+              value={customerId || undefined}
+              onSelect={handleCustomerSelect}
+              placeholder="Select customer or create new..."
+            />
+            {!customerId && (
+              <FormField
+                control={form.control}
+                name="party_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input placeholder="Or type party name manually..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            {customerId && (
+              <p className="text-xs text-muted-foreground">
+                Party name auto-filled from selected customer.
+              </p>
+            )}
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField

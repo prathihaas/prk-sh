@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPermissions } from "@/lib/auth/helpers";
 import { getInvoice } from "@/lib/queries/invoices";
+import { getCustomersForSelect } from "@/lib/queries/customers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { InvoiceForm } from "@/components/forms/invoice-form";
 
@@ -34,12 +35,15 @@ export default async function EditInvoicePage({
 
   if (!companyId || !branchId) redirect("/invoices");
 
-  const { data: fy } = await supabase
-    .from("financial_years")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("is_active", true)
-    .single();
+  const [{ data: fy }, customers] = await Promise.all([
+    supabase
+      .from("financial_years")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("is_active", true)
+      .single(),
+    getCustomersForSelect(companyId),
+  ]);
 
   if (!fy) redirect("/invoices");
 
@@ -50,6 +54,7 @@ export default async function EditInvoicePage({
         branchId={branchId}
         currentUserId={user.id}
         financialYearId={fy.id}
+        customers={customers}
         invoice={invoice}
       />
     </div>

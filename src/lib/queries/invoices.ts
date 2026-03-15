@@ -83,6 +83,7 @@ export async function createInvoice(
 
   const { error } = await supabase.from("invoices").insert({
     invoice_type: validated.invoice_type,
+    customer_id: validated.customer_id || null,
     customer_name: validated.customer_name,
     customer_gstin: validated.customer_gstin || null,
     customer_phone: validated.customer_phone || null,
@@ -122,6 +123,7 @@ export async function updateInvoice(id: string, values: InvoiceFormValues) {
     .from("invoices")
     .update({
       invoice_type: validated.invoice_type,
+      customer_id: validated.customer_id || null,
       customer_name: validated.customer_name,
       customer_gstin: validated.customer_gstin || null,
       customer_phone: validated.customer_phone || null,
