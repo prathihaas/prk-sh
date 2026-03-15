@@ -46,10 +46,10 @@ export default async function AssetDetailPage({
 
   const employeesRes = await supabase
     .from("employees")
-    .select("id, name, employee_code")
+    .select("id, full_name, employee_code")
     .eq("company_id", companyId || asset.company_id)
     .eq("status", "active")
-    .order("name");
+    .order("full_name");
 
   const headersList = await headers();
   const host = headersList.get("host") || "prk-sh.vercel.app";
@@ -61,7 +61,7 @@ export default async function AssetDetailPage({
   const canAssign = permissions.has(PERMISSIONS.ASSET_ASSIGN);
 
   const category = asset.category as { name: string } | null;
-  const assignedEmployee = asset.assigned_employee as { id: string; name: string; employee_code?: string } | null;
+  const assignedEmployee = asset.assigned_employee as { id: string; full_name: string; employee_code?: string } | null;
 
   // Depreciation calc
   let bookValue: number | null = null;
@@ -123,7 +123,7 @@ export default async function AssetDetailPage({
             <CardContent>
               <dl className="grid gap-3 sm:grid-cols-2 text-sm">
                 <div><dt className="text-muted-foreground">Status</dt><dd><StatusBadge status={asset.status} /></dd></div>
-                <div><dt className="text-muted-foreground">Assigned To</dt><dd>{assignedEmployee?.name || "Unassigned"}</dd></div>
+                <div><dt className="text-muted-foreground">Assigned To</dt><dd>{assignedEmployee?.full_name || "Unassigned"}</dd></div>
                 <div><dt className="text-muted-foreground">Purchase Date</dt><dd>{asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString("en-IN") : "—"}</dd></div>
                 <div><dt className="text-muted-foreground">Purchase Value</dt><dd className="tabular-nums">{asset.purchase_value ? formatINR(asset.purchase_value) : "—"}</dd></div>
                 <div><dt className="text-muted-foreground">Salvage Value</dt><dd className="tabular-nums">{formatINR(asset.salvage_value || 0)}</dd></div>
@@ -226,10 +226,10 @@ export default async function AssetDetailPage({
                     </TableHeader>
                     <TableBody>
                       {history.assignments.map((a: any) => {
-                        const emp = a.employee as { name: string; employee_code?: string } | null;
+                        const emp = a.employee as { full_name: string; employee_code?: string } | null;
                         return (
                           <TableRow key={a.id}>
-                            <TableCell>{emp?.name || "—"}{emp?.employee_code && <span className="ml-1 text-xs text-muted-foreground">({emp.employee_code})</span>}</TableCell>
+                            <TableCell>{emp?.full_name || "—"}{emp?.employee_code && <span className="ml-1 text-xs text-muted-foreground">({emp.employee_code})</span>}</TableCell>
                             <TableCell>{new Date(a.assigned_at).toLocaleDateString("en-IN")}</TableCell>
                             <TableCell>{a.returned_at ? new Date(a.returned_at).toLocaleDateString("en-IN") : <Badge variant="outline" className="text-green-600">In Use</Badge>}</TableCell>
                             <TableCell className="text-muted-foreground">{a.notes || "—"}</TableCell>

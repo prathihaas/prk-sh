@@ -10,7 +10,7 @@ export async function getAssets(companyId: string, branchId?: string | null) {
   let query = supabase
     .from("assets")
     .select(
-      "id, asset_code, qr_token, name, is_vehicle, status, current_km_reading, purchase_value, useful_life_years, purchase_date, last_audit_date, audit_condition, category:asset_categories!assets_category_id_fkey(name), assigned_employee:employees!assets_assigned_to_fkey(id, name)"
+      "id, asset_code, qr_token, name, is_vehicle, status, current_km_reading, purchase_value, useful_life_years, purchase_date, last_audit_date, audit_condition, category:asset_categories!assets_category_id_fkey(name), assigned_employee:employees!assets_assigned_to_fkey(id, full_name)"
     )
     .eq("company_id", companyId)
     .order("asset_code");
@@ -27,7 +27,7 @@ export async function getAsset(id: string) {
   const { data, error } = await supabase
     .from("assets")
     .select(
-      "*, category:asset_categories!assets_category_id_fkey(id, name), assigned_employee:employees!assets_assigned_to_fkey(id, name, employee_code)"
+      "*, category:asset_categories!assets_category_id_fkey(id, name), assigned_employee:employees!assets_assigned_to_fkey(id, full_name, employee_code)"
     )
     .eq("id", id)
     .single();
@@ -63,7 +63,7 @@ export async function getAssetHistory(assetId: string) {
       .limit(50),
     supabase
       .from("asset_assignments")
-      .select("id, assigned_at, returned_at, notes, employee:employees(id, name, employee_code)")
+      .select("id, assigned_at, returned_at, notes, employee:employees(id, full_name, employee_code)")
       .eq("asset_id", assetId)
       .order("assigned_at", { ascending: false })
       .limit(50),

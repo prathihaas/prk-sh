@@ -162,7 +162,7 @@ export function AuditForm({ assetId, userId, isVehicle }: AuditFormProps) {
 interface AssignFormProps {
   assetId: string;
   userId: string;
-  employees: { id: string; name: string; employee_code?: string }[];
+  employees: { id: string; full_name: string; employee_code?: string }[];
   currentAssigneeId?: string | null;
 }
 
@@ -210,7 +210,7 @@ export function AssignForm({ assetId, userId, employees, currentAssigneeId }: As
                 <SelectItem value="__none__">— Unassign (Return) —</SelectItem>
                 {employees.map((emp) => (
                   <SelectItem key={emp.id} value={emp.id}>
-                    {emp.name}{emp.employee_code ? ` (${emp.employee_code})` : ""}
+                    {emp.full_name}{emp.employee_code ? ` (${emp.employee_code})` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
