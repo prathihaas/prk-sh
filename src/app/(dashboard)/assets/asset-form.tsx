@@ -121,14 +121,17 @@ export function AssetForm({ companyId, userId, categories, branches, asset }: As
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                  <Select
+                    onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)}
+                    value={field.value || "__none__"}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">— None —</SelectItem>
+                      <SelectItem value="__none__">— None —</SelectItem>
                       {categories.map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}
@@ -144,14 +147,17 @@ export function AssetForm({ companyId, userId, categories, branches, asset }: As
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Branch</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                  <Select
+                    onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)}
+                    value={field.value || "__none__"}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select branch" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">— Company Level —</SelectItem>
+                      <SelectItem value="__none__">— Company Level —</SelectItem>
                       {branches.map((b) => (
                         <SelectItem key={b.id} value={b.id}>{b.name} ({b.code})</SelectItem>
                       ))}

@@ -169,7 +169,7 @@ interface AssignFormProps {
 export function AssignForm({ assetId, userId, employees, currentAssigneeId }: AssignFormProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [employeeId, setEmployeeId] = useState(currentAssigneeId || "");
+  const [employeeId, setEmployeeId] = useState(currentAssigneeId ?? "");
   const [notes, setNotes] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
@@ -201,10 +201,13 @@ export function AssignForm({ assetId, userId, employees, currentAssigneeId }: As
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label>Employee</Label>
-            <Select onValueChange={setEmployeeId} value={employeeId}>
+            <Select
+              onValueChange={(val) => setEmployeeId(val === "__none__" ? "" : val)}
+              value={employeeId || "__none__"}
+            >
               <SelectTrigger><SelectValue placeholder="Select employee (or none to unassign)" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">— Unassign (Return) —</SelectItem>
+                <SelectItem value="__none__">— Unassign (Return) —</SelectItem>
                 {employees.map((emp) => (
                   <SelectItem key={emp.id} value={emp.id}>
                     {emp.name}{emp.employee_code ? ` (${emp.employee_code})` : ""}

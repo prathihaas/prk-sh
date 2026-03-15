@@ -92,6 +92,7 @@ export function CashbookTransactionForm({
       form.setValue("party_name", customer.full_name);
     } else {
       form.setValue("customer_id", "");
+      // Keep party_name so user doesn't lose manually typed text
     }
   }
 
@@ -159,34 +160,46 @@ export function CashbookTransactionForm({
             )}
           />
 
-          {/* Party Name — select from customers or type manually */}
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Party Name</p>
+          {/* Party Name — always editable; customer picker auto-fills it */}
+          <FormField
+            control={form.control}
+            name="party_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Party Name</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Enter party / customer name..."
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      // Unlink customer if user edits name manually
+                      if (customerId) form.setValue("customer_id", "");
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Optional: link to a customer record */}
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium text-muted-foreground">
+              Link to Customer Record{" "}
+              <span className="font-normal text-xs">(optional — auto-fills name above)</span>
+            </p>
             <CustomerPickerWithCreate
               customers={customers}
               companyId={companyId}
               currentUserId={currentUserId}
               value={customerId || undefined}
               onSelect={handleCustomerSelect}
-              placeholder="Select customer or create new..."
+              placeholder="Search or create customer..."
             />
-            {!customerId && (
-              <FormField
-                control={form.control}
-                name="party_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input placeholder="Or type party name manually..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
             {customerId && (
-              <p className="text-xs text-muted-foreground">
-                Party name auto-filled from selected customer.
+              <p className="text-xs text-green-600">
+                ✓ Linked to customer record — name auto-filled above
               </p>
             )}
           </div>
