@@ -194,8 +194,8 @@ export function BranchTransferForm({
                     To Branch {isInterCompany ? <span className="text-muted-foreground text-xs">(optional)</span> : "*"}
                   </FormLabel>
                   <Select
-                    onValueChange={field.onChange}
-                    value={field.value ?? ""}
+                    onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)}
+                    value={field.value ? field.value : isInterCompany ? "__none__" : ""}
                     disabled={!watchToCompanyId}
                   >
                     <FormControl>
@@ -211,7 +211,7 @@ export function BranchTransferForm({
                     </FormControl>
                     <SelectContent>
                       {isInterCompany && (
-                        <SelectItem value="">Any / No specific branch</SelectItem>
+                        <SelectItem value="__none__">Any / No specific branch</SelectItem>
                       )}
                       {toBranches.map((b) => (
                         <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
