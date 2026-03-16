@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Settings2, ListChecks, UserCog, Webhook, IndianRupee } from "lucide-react";
+import { Settings2, ListChecks, UserCog, Webhook, IndianRupee, Building2 } from "lucide-react";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -118,6 +118,27 @@ export default async function SettingsPage() {
               <CardContent>
                 <p className="text-sm text-muted-foreground">
                   Hard-block cash receipts and expense payments that exceed legal limits
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
+        {canConfigureApproval && (
+          <Link href="/settings/company-partners" className="block">
+            <Card className="h-full transition-colors hover:border-primary">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle className="text-lg">Company Partners</CardTitle>
+                </div>
+                <CardDescription>
+                  Manage insurance and finance company names used in vehicle sales and
+                  service receipts
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Add or remove partner company names that appear as dropdown options
                 </p>
               </CardContent>
             </Card>

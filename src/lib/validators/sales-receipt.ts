@@ -33,6 +33,18 @@ export const salesReceiptSchema = z.object({
   ),
   payment_reference: z.string().max(200).optional().or(z.literal("")),
 
+  // Cashbook to receive cash (only relevant when payment_mode = "cash")
+  cashbook_id: z.string().uuid().optional().or(z.literal("")),
+
+  // Insurance fields (for service type)
+  insurance_due: z.boolean().optional(),
+  insurance_company: z.string().max(200).optional().or(z.literal("")),
+
+  // Finance fields (for automobile / tractor sale types)
+  finance_due: z.boolean().optional(),
+  finance_company: z.string().max(200).optional().or(z.literal("")),
+  finance_amount: z.number().min(0).optional(),
+
   notes: z.string().max(1000).optional().or(z.literal("")),
 });
 

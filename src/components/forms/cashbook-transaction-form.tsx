@@ -160,13 +160,36 @@ export function CashbookTransactionForm({
             )}
           />
 
-          {/* Party Name — always editable; customer picker auto-fills it */}
+          {/* Customer picker — primary selection; auto-fills Party Name below */}
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium leading-none">Customer</p>
+            <CustomerPickerWithCreate
+              customers={customers}
+              companyId={companyId}
+              currentUserId={currentUserId}
+              value={customerId || undefined}
+              onSelect={handleCustomerSelect}
+              placeholder="Search or create customer..."
+            />
+            {customerId && (
+              <p className="text-xs text-green-600">
+                ✓ Customer selected — party name auto-filled below
+              </p>
+            )}
+          </div>
+
+          {/* Party Name — auto-filled from customer, or type manually */}
           <FormField
             control={form.control}
             name="party_name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Party Name</FormLabel>
+                <FormLabel>
+                  Party Name{" "}
+                  <span className="font-normal text-xs text-muted-foreground">
+                    (auto-filled from customer, or type manually)
+                  </span>
+                </FormLabel>
                 <FormControl>
                   <Input
                     placeholder="Enter party / customer name..."
@@ -182,27 +205,6 @@ export function CashbookTransactionForm({
               </FormItem>
             )}
           />
-
-          {/* Optional: link to a customer record */}
-          <div className="space-y-1.5">
-            <p className="text-sm font-medium text-muted-foreground">
-              Link to Customer Record{" "}
-              <span className="font-normal text-xs">(optional — auto-fills name above)</span>
-            </p>
-            <CustomerPickerWithCreate
-              customers={customers}
-              companyId={companyId}
-              currentUserId={currentUserId}
-              value={customerId || undefined}
-              onSelect={handleCustomerSelect}
-              placeholder="Search or create customer..."
-            />
-            {customerId && (
-              <p className="text-xs text-green-600">
-                ✓ Linked to customer record — name auto-filled above
-              </p>
-            )}
-          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField

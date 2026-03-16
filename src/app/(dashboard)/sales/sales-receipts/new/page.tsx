@@ -4,16 +4,25 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserPermissions } from "@/lib/auth/helpers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { getCustomersForSelect } from "@/lib/queries/customers";
+import { getCashbooks } from "@/lib/queries/cashbooks";
+import { getVehicles } from "@/lib/queries/vehicle-register";
+import {
+  getInsuranceCompanies,
+  getFinanceCompanies,
+} from "@/lib/queries/company-configs";
 import { PageHeader } from "@/components/shared/page-header";
 import { SalesReceiptForm } from "./sales-receipt-form";
 
 export default async function NewSalesReceiptPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   const permissions = await getUserPermissions(supabase, user.id);
-  if (!permissions.has(PERMISSIONS.SALES_RECEIPT_CREATE)) redirect("/sales/sales-receipts");
+  if (!permissions.has(PERMISSIONS.SALES_RECEIPT_CREATE))
+    redirect("/sales/sales-receipts");
 
   const cs = await cookies();
   const companyId = cs.get("scope_company_id")?.value || "";
@@ -22,8 +31,15 @@ export default async function NewSalesReceiptPage() {
 
   if (!companyId || !branchId) redirect("/sales/sales-receipts");
 
-  // Fetch active financial year and customers in parallel
-  const [fyResult, customers] = await Promise.all([
+  // Fetch all required data in parallel
+  const [
+    fyResult,
+    customers,
+    rawCashbooks,
+    rawVehicles,
+    insuranceCompanies,
+    financeCompanies,
+  ] = await Promise.all([
     fyId
       ? Promise.resolve({ data: { id: fyId } })
       : supabase
@@ -33,9 +49,28 @@ export default async function NewSalesReceiptPage() {
           .eq("is_active", true)
           .single(),
     getCustomersForSelect(companyId),
+    getCashbooks(companyId, branchId, "cash"),
+    getVehicles(companyId, branchId),
+    getInsuranceCompanies(companyId),
+    getFinanceCompanies(companyId),
   ]);
 
   const financialYearId = fyResult.data?.id || "";
+
+  // Active cash/petty cashbooks for the cashbook selector
+  const cashbooks = (rawCashbooks as Record<string, unknown>[])
+    .filter((cb) => cb.is_active)
+    .map((cb) => ({ id: String(cb.id), name: String(cb.name) }));
+
+  // Vehicle register entries for the service vehicle picker
+  const serviceVehicles = (rawVehicles as Record<string, unknown>[]).map((v) => ({
+    id: String(v.id),
+    label:
+      [v.make, v.model, v.variant].filter(Boolean).join(" ") || "Unknown Vehicle",
+    vin_number: String(v.vin_number || v.chassis_number || ""),
+    engine_number: String(v.engine_number || ""),
+    status: String(v.status || ""),
+  }));
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -49,6 +84,10 @@ export default async function NewSalesReceiptPage() {
         branchId={branchId}
         financialYearId={financialYearId}
         customers={customers}
+        cashbooks={cashbooks}
+        serviceVehicles={serviceVehicles}
+        insuranceCompanies={insuranceCompanies}
+        financeCompanies={financeCompanies}
       />
     </div>
   );

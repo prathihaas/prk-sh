@@ -89,3 +89,67 @@ export async function updateCashLimits(companyId: string, limits: CashLimits) {
   revalidatePath("/settings");
   return { success: true };
 }
+
+// ── Insurance & Finance company name lists ─────────────────────────────────
+
+export async function getInsuranceCompanies(companyId: string): Promise<string[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("company_configs")
+    .select("config_value")
+    .eq("company_id", companyId)
+    .eq("config_key", "insurance_companies")
+    .single();
+
+  if (!data?.config_value) return [];
+  const val = data.config_value;
+  return Array.isArray(val) ? (val as string[]) : [];
+}
+
+export async function updateInsuranceCompanies(
+  companyId: string,
+  companies: string[]
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("company_configs")
+    .upsert(
+      { company_id: companyId, config_key: "insurance_companies", config_value: companies },
+      { onConflict: "company_id,config_key" }
+    );
+
+  if (error) return { error: error.message };
+  revalidatePath("/settings/company-partners");
+  return { success: true };
+}
+
+export async function getFinanceCompanies(companyId: string): Promise<string[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("company_configs")
+    .select("config_value")
+    .eq("company_id", companyId)
+    .eq("config_key", "finance_companies")
+    .single();
+
+  if (!data?.config_value) return [];
+  const val = data.config_value;
+  return Array.isArray(val) ? (val as string[]) : [];
+}
+
+export async function updateFinanceCompanies(
+  companyId: string,
+  companies: string[]
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("company_configs")
+    .upsert(
+      { company_id: companyId, config_key: "finance_companies", config_value: companies },
+      { onConflict: "company_id,config_key" }
+    );
+
+  if (error) return { error: error.message };
+  revalidatePath("/settings/company-partners");
+  return { success: true };
+}

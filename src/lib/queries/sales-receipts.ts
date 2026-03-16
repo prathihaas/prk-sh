@@ -115,12 +115,30 @@ export async function createSalesReceipt(
     default: amountField.other_charges = validated.base_amount;
   }
 
+  // ── Build notes string (vehicle + insurance + finance metadata) ──────────
+  const noteParts = [
+    validated.notes || null,
+    validated.vehicle_model ? `Model: ${validated.vehicle_model}` : null,
+    validated.vehicle_variant ? `Variant: ${validated.vehicle_variant}` : null,
+    validated.vin_number ? `VIN: ${validated.vin_number}` : null,
+    validated.engine_number ? `Engine: ${validated.engine_number}` : null,
+    validated.insurance_due && validated.insurance_company
+      ? `Insurance: ${validated.insurance_company}`
+      : null,
+    validated.finance_due && validated.finance_company
+      ? `Finance: ${validated.finance_company}`
+      : null,
+    validated.finance_due && validated.finance_amount
+      ? `Finance Amt: ₹${validated.finance_amount.toLocaleString("en-IN")}`
+      : null,
+  ].filter((s): s is string => Boolean(s));
+
   // ── Create invoice ───────────────────────────────────────────────────────
   const { data: invoice, error: invError } = await supabase
     .from("invoices")
     .insert({
       invoice_type: validated.invoice_type,
-      customer_id: validated.customer_id || null,   // empty string → null (safe for UUID column)
+      customer_id: validated.customer_id || null,
       customer_name: validated.customer_name,
       customer_phone: validated.customer_phone || null,
       customer_gstin: validated.customer_gstin || null,
@@ -131,19 +149,13 @@ export async function createSalesReceipt(
       tax_breakup: { cgst, sgst, igst, cess: 0, tcs },
       total_tax: taxTotal,
       grand_total: grandTotal,
-      notes: [
-        validated.notes,
-        validated.vehicle_model ? `Model: ${validated.vehicle_model}` : null,
-        validated.vehicle_variant ? `Variant: ${validated.vehicle_variant}` : null,
-        validated.vin_number ? `VIN: ${validated.vin_number}` : null,
-        validated.engine_number ? `Engine: ${validated.engine_number}` : null,
-      ].filter(Boolean).join(" | ") || null,
+      notes: noteParts.join(" | ") || null,
       approval_status: "pending",
       company_id: values.company_id,
       branch_id: values.branch_id,
       financial_year_id: values.financial_year_id || null,
       created_by: values.created_by,
-      is_sales_receipt: true,         // ← marks this as a Sales Receipt
+      is_sales_receipt: true,
       is_delivery_allowed: false,
     })
     .select("id, dms_invoice_number")
@@ -151,8 +163,56 @@ export async function createSalesReceipt(
 
   if (invError) return { error: invError.message };
 
+  // ── For cash payment: try to post to the selected cashbook ───────────────
+  let cashbookTxnId: string | null = null;
+  const cashbookId = validated.cashbook_id || null;
+  if (validated.payment_mode === "cash" && cashbookId) {
+    const { data: day } = await supabase
+      .from("cashbook_days")
+      .select("id")
+      .eq("cashbook_id", cashbookId)
+      .eq("date", validated.invoice_date)
+      .in("status", ["open", "reopened"])
+      .single();
+
+    if (day) {
+      const narration = [
+        `Sales Receipt - ${validated.customer_name}`,
+        validated.dms_invoice_number
+          ? `Ref: ${validated.dms_invoice_number}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" | ");
+
+      const { data: txn } = await supabase
+        .from("cashbook_transactions")
+        .insert({
+          cashbook_id: cashbookId,
+          cashbook_day_id: day.id,
+          company_id: values.company_id,
+          branch_id: values.branch_id,
+          financial_year_id: values.financial_year_id || null,
+          txn_type: "receipt",
+          amount: grandTotal,
+          payment_mode: "cash",
+          narration,
+          party_name: validated.customer_name,
+          customer_id: validated.customer_id || null,
+          receipt_number: "PENDING",
+          receipt_hash: "PENDING",
+          created_by: values.created_by,
+        })
+        .select("id")
+        .single();
+
+      cashbookTxnId = txn?.id ?? null;
+    }
+    // If no open day: proceed without cashbook link, caller will show warning
+  }
+
   // ── Record full payment immediately ─────────────────────────────────────
-  const { error: payError } = await supabase.from("invoice_payments").insert({
+  const paymentRow: Record<string, unknown> = {
     invoice_id: invoice.id,
     company_id: values.company_id,
     branch_id: values.branch_id,
@@ -161,15 +221,33 @@ export async function createSalesReceipt(
     reference_number: validated.payment_reference || null,
     payment_date: validated.invoice_date,
     created_by: values.created_by,
-  });
+  };
+  if (cashbookTxnId) {
+    paymentRow.transaction_id = cashbookTxnId;
+  }
+
+  const { error: payError } = await supabase
+    .from("invoice_payments")
+    .insert(paymentRow);
 
   if (payError) {
-    // Rollback invoice if payment fails
+    // Rollback invoice (and cashbook transaction if created)
     await supabase.from("invoices").delete().eq("id", invoice.id);
+    if (cashbookTxnId) {
+      await supabase
+        .from("cashbook_transactions")
+        .delete()
+        .eq("id", cashbookTxnId);
+    }
     return { error: payError.message };
   }
 
   revalidatePath("/sales/sales-receipts");
   revalidatePath("/invoices");
-  return { success: true, invoiceId: invoice.id };
+  if (cashbookId) revalidatePath("/cash/cashbooks");
+  return {
+    success: true,
+    invoiceId: invoice.id,
+    cashbookLinked: cashbookTxnId !== null,
+  };
 }
