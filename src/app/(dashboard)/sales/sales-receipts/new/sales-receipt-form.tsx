@@ -13,6 +13,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  CustomerPickerWithCreate,
+  type CustomerOption,
+} from "@/components/shared/customer-picker";
 import { createSalesReceipt } from "@/lib/queries/sales-receipts";
 
 interface SalesReceiptFormProps {
@@ -20,6 +24,7 @@ interface SalesReceiptFormProps {
   companyId: string;
   branchId: string;
   financialYearId: string;
+  customers: CustomerOption[];
 }
 
 const INVOICE_TYPES = [
@@ -49,6 +54,7 @@ export function SalesReceiptForm({
   companyId,
   branchId,
   financialYearId,
+  customers,
 }: SalesReceiptFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -59,7 +65,8 @@ export function SalesReceiptForm({
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
   const [dmsInvoiceNumber, setDmsInvoiceNumber] = useState("");
 
-  // Customer
+  // Customer — linked record (optional) + manual overrides
+  const [customerId, setCustomerId] = useState<string>("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerGstin, setCustomerGstin] = useState("");
@@ -97,6 +104,18 @@ export function SalesReceiptForm({
   const tcs = parseFloat(taxTcs) || 0;
   const grandTotal = base - discount + cgst + sgst + igst + tcs;
 
+  function handleCustomerSelect(customer: CustomerOption | null) {
+    if (customer) {
+      setCustomerId(customer.id);
+      setCustomerName(customer.full_name);
+      setCustomerPhone(customer.phone || "");
+      setCustomerGstin(customer.gstin || "");
+    } else {
+      setCustomerId("");
+      // Keep manually typed values when clearing the linked record
+    }
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -104,13 +123,13 @@ export function SalesReceiptForm({
     if (!customerName.trim()) { toast.error("Customer name is required."); return; }
     if (!baseAmount || base <= 0) { toast.error("Sale amount must be greater than zero."); return; }
     if (!paymentMode) { toast.error("Please select a payment mode."); return; }
-    if (!companyId || !branchId) { toast.error("Company and branch scope must be set in the header."); return; }
 
     startTransition(async () => {
       const result = await createSalesReceipt({
         invoice_type: invoiceType as "automobile_sale" | "tractor_agri_sale" | "service" | "other_income",
         invoice_date: invoiceDate,
         dms_invoice_number: dmsInvoiceNumber || undefined,
+        customer_id: customerId || undefined,
         customer_name: customerName,
         customer_phone: customerPhone || undefined,
         customer_gstin: customerGstin || undefined,
@@ -189,6 +208,27 @@ export function SalesReceiptForm({
       <Card>
         <CardHeader><CardTitle>Customer Details</CardTitle></CardHeader>
         <CardContent className="space-y-4">
+          {/* Customer picker — search / create from existing records */}
+          <div className="space-y-1.5">
+            <Label>Customer Record</Label>
+            <CustomerPickerWithCreate
+              customers={customers}
+              companyId={companyId}
+              currentUserId={userId}
+              value={customerId || undefined}
+              onSelect={handleCustomerSelect}
+              placeholder="Search or create customer…"
+            />
+            {customerId && (
+              <p className="text-xs text-green-600">
+                ✓ Linked to customer record — details auto-filled below
+              </p>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Manual overrides — auto-filled when customer selected, editable */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="customer_name">Customer Name *</Label>
@@ -196,7 +236,11 @@ export function SalesReceiptForm({
                 id="customer_name"
                 placeholder="Full name"
                 value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
+                onChange={(e) => {
+                  setCustomerName(e.target.value);
+                  // Unlink customer record if name is edited manually
+                  if (customerId) setCustomerId("");
+                }}
                 required
               />
             </div>

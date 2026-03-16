@@ -76,6 +76,11 @@ export async function createSalesReceipt(
   const validated = salesReceiptSchema.parse(values);
   const supabase = await createClient();
 
+  // ── Guard required scope IDs ──────────────────────────────────────────────
+  if (!values.company_id) return { error: "No company selected. Please select a company in the header." };
+  if (!values.branch_id) return { error: "No branch selected. Please select a branch in the header." };
+  if (!values.financial_year_id) return { error: "No active financial year found. Please configure a financial year." };
+
   // ── Cash limit check (Section 269ST) ────────────────────────────────────
   if (validated.payment_mode === "cash" && values.financial_year_id) {
     const limits = await getCashLimits(values.company_id);
@@ -115,7 +120,7 @@ export async function createSalesReceipt(
     .from("invoices")
     .insert({
       invoice_type: validated.invoice_type,
-      customer_id: validated.customer_id || null,
+      customer_id: validated.customer_id || null,   // empty string → null (safe for UUID column)
       customer_name: validated.customer_name,
       customer_phone: validated.customer_phone || null,
       customer_gstin: validated.customer_gstin || null,
@@ -136,7 +141,7 @@ export async function createSalesReceipt(
       approval_status: "pending",
       company_id: values.company_id,
       branch_id: values.branch_id,
-      financial_year_id: values.financial_year_id,
+      financial_year_id: values.financial_year_id || null,
       created_by: values.created_by,
       is_sales_receipt: true,         // ← marks this as a Sales Receipt
       is_delivery_allowed: false,

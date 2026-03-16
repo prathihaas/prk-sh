@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPermissions } from "@/lib/auth/helpers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
+import { getCustomersForSelect } from "@/lib/queries/customers";
 import { PageHeader } from "@/components/shared/page-header";
 import { SalesReceiptForm } from "./sales-receipt-form";
 
@@ -19,6 +20,23 @@ export default async function NewSalesReceiptPage() {
   const branchId = cs.get("scope_branch_id")?.value || "";
   const fyId = cs.get("scope_financial_year_id")?.value || "";
 
+  if (!companyId || !branchId) redirect("/sales/sales-receipts");
+
+  // Fetch active financial year and customers in parallel
+  const [fyResult, customers] = await Promise.all([
+    fyId
+      ? Promise.resolve({ data: { id: fyId } })
+      : supabase
+          .from("financial_years")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("is_active", true)
+          .single(),
+    getCustomersForSelect(companyId),
+  ]);
+
+  const financialYearId = fyResult.data?.id || "";
+
   return (
     <div className="space-y-6 max-w-3xl">
       <PageHeader
@@ -29,7 +47,8 @@ export default async function NewSalesReceiptPage() {
         userId={user.id}
         companyId={companyId}
         branchId={branchId}
-        financialYearId={fyId}
+        financialYearId={financialYearId}
+        customers={customers}
       />
     </div>
   );
