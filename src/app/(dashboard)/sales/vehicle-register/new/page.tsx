@@ -21,7 +21,7 @@ export default async function NewVehiclePage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <PageHeader title="Add Vehicle to Register" description="Record a vehicle that has arrived at the showroom." />
+      <PageHeader title="Add Vehicle to Register" description="Record a vehicle arriving for workshop or bodyshop." />
       <VehicleForm
         userId={user.id}
         companyId={companyId}
