@@ -1,5 +1,4 @@
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPermissions } from "@/lib/auth/helpers";
 import { getCashbook } from "@/lib/queries/cashbooks";
@@ -11,14 +10,13 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { DataTable } from "@/components/shared/data-table";
 import { formatINR } from "@/components/shared/currency-display";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus } from "lucide-react";
 import { transactionColumns } from "./transactions/columns";
 import { DayActions } from "./day-actions";
 import { ExportButton } from "@/components/shared/export-button";
 import { TransactionAuditLog } from "./transaction-audit-log";
+import { NewTransactionMenu } from "./new-transaction-menu";
 
 export default async function CashbookDayDetailPage({
   params,
@@ -45,6 +43,7 @@ export default async function CashbookDayDetailPage({
   const canCreateTxn = isOpen && permissions.has(PERMISSIONS.CASHBOOK_CREATE_TXN);
   const canClose = isOpen && permissions.has(PERMISSIONS.CASHBOOK_CLOSE_DAY);
   const canReopen = day.status === "closed" && permissions.has(PERMISSIONS.CASHBOOK_REOPEN_DAY);
+  const canTransfer = permissions.has(PERMISSIONS.CASHBOOK_TRANSFER_CREATE);
 
   const { cookies } = await import("next/headers");
   const cs = await cookies();
@@ -132,11 +131,11 @@ export default async function CashbookDayDetailPage({
               label="Export"
             />
             {canCreateTxn && (
-              <Button asChild size="sm">
-                <Link href={`/cash/cashbooks/${cashbookId}/days/${dayId}/transactions/new`}>
-                  <Plus className="mr-2 h-4 w-4" />New Transaction
-                </Link>
-              </Button>
+              <NewTransactionMenu
+                cashbookId={cashbookId}
+                dayId={dayId}
+                canTransfer={canTransfer}
+              />
             )}
           </div>
         </div>
