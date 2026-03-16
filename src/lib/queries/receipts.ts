@@ -110,8 +110,8 @@ export async function createReceipt(
 
   // ── Cash limit enforcement (Section 269ST) ──────────────────────────────
   // Block if this receipt would push the customer's total cash receipts over the legal limit
-  if ((validated as Record<string, unknown>).payment_mode === "cash" && (validated as Record<string, unknown>).customer_id) {
-    const customerId = (validated as Record<string, unknown>).customer_id as string;
+  if (validated.payment_mode === "cash" && validated.customer_id) {
+    const customerId = validated.customer_id;
     const limits = await getCashLimits(values.company_id);
 
     // Sum all non-voided cash receipts for this customer this financial year
@@ -166,6 +166,7 @@ export async function createReceipt(
       payment_mode: validated.payment_mode,
       narration: validated.narration,
       party_name: validated.party_name,
+      customer_id: validated.customer_id || null,
       receipt_number: "PENDING", // DB trigger generates this
       receipt_hash: "PENDING", // DB trigger generates this
       created_by: values.created_by,

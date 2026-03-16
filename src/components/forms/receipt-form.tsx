@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Loader2, IndianRupee, CheckCircle2 } from "lucide-react";
@@ -21,6 +21,10 @@ import {
 } from "@/components/ui/form";
 import { FormCard } from "@/components/shared/form-card";
 import { TelegramOtpDialog } from "@/components/shared/telegram-otp-dialog";
+import {
+  CustomerPickerWithCreate,
+  type CustomerOption,
+} from "@/components/shared/customer-picker";
 
 interface ApprovalUser {
   id: string;
@@ -33,6 +37,7 @@ interface ReceiptFormProps {
   currentUserId: string;
   financialYearId: string;
   cashbooks: { id: string; name: string; type: string }[];
+  customers?: CustomerOption[];
   canBackdate?: boolean;
   /** If provided, OTP approval dialog is shown after receipt creation */
   approvalChain?: {
@@ -64,6 +69,7 @@ export function ReceiptForm({
   currentUserId,
   financialYearId,
   cashbooks,
+  customers = [],
   canBackdate = false,
   approvalChain,
   requireOtpApproval = false,
@@ -79,6 +85,7 @@ export function ReceiptForm({
     defaultValues: {
       cashbook_id: "",
       date: new Date().toISOString().split("T")[0],
+      customer_id: "",
       party_name: "",
       amount: 0,
       payment_mode: "cash",
@@ -87,6 +94,16 @@ export function ReceiptForm({
   });
 
   const watchAmount = form.watch("amount");
+  const customerId = useWatch({ control: form.control, name: "customer_id" });
+
+  function handleCustomerSelect(customer: CustomerOption | null) {
+    if (customer) {
+      form.setValue("customer_id", customer.id);
+      form.setValue("party_name", customer.full_name);
+    } else {
+      form.setValue("customer_id", "");
+    }
+  }
   const amountInWords =
     watchAmount > 0 ? amountToIndianWords(watchAmount) : "";
 
@@ -95,6 +112,7 @@ export function ReceiptForm({
     try {
       const result = await createReceipt({
         ...values,
+        customer_id: values.customer_id || undefined,
         company_id: companyId,
         branch_id: branchId,
         created_by: currentUserId,
@@ -214,15 +232,45 @@ export function ReceiptForm({
               />
             </div>
 
-            {/* Row 2: Party Name */}
+            {/* Row 2: Customer picker (primary) + Party Name */}
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium leading-none">Customer</p>
+              <CustomerPickerWithCreate
+                customers={customers}
+                companyId={companyId}
+                currentUserId={currentUserId}
+                value={customerId || undefined}
+                onSelect={handleCustomerSelect}
+                placeholder="Search or create customer..."
+              />
+              {customerId && (
+                <p className="text-xs text-green-600">
+                  ✓ Customer selected — name auto-filled below &amp; cash limit tracking enabled
+                </p>
+              )}
+            </div>
+
             <FormField
               control={form.control}
               name="party_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Received From (Party Name) *</FormLabel>
+                  <FormLabel>
+                    Received From (Party Name) *{" "}
+                    <span className="font-normal text-xs text-muted-foreground">
+                      (auto-filled from customer, or type manually)
+                    </span>
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. Shri Rajesh Sharma" {...field} />
+                    <Input
+                      placeholder="e.g. Shri Rajesh Sharma"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                        // Unlink customer record if name is typed manually
+                        if (customerId) form.setValue("customer_id", "");
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

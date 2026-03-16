@@ -7,6 +7,7 @@ import {
   getMinHierarchyLevel,
 } from "@/lib/auth/helpers";
 import { getActiveCashbooksForUser } from "@/lib/queries/cashbooks";
+import { getCustomersForSelect } from "@/lib/queries/customers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReceiptForm } from "@/components/forms/receipt-form";
@@ -40,23 +41,20 @@ export default async function NewReceiptPage() {
     );
   }
 
-  // Get active financial year
-  const { data: fy } = await supabase
-    .from("financial_years")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("is_active", true)
-    .single();
-
   const hierarchyLevel = getMinHierarchyLevel(assignments);
 
-  // Cashiers see only their assigned cashbook; managers see all
-  const cashbooks = await getActiveCashbooksForUser(
-    companyId,
-    branchId,
-    user.id,
-    hierarchyLevel
-  );
+  // Fetch financial year, cashbooks, and customers in parallel
+  const [{ data: fy }, cashbooks, customers] = await Promise.all([
+    supabase
+      .from("financial_years")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("is_active", true)
+      .single(),
+    // Cashiers see only their assigned cashbook; managers see all
+    getActiveCashbooksForUser(companyId, branchId, user.id, hierarchyLevel),
+    getCustomersForSelect(companyId),
+  ]);
 
   const canBackdate = permissions.has(PERMISSIONS.RECEIPT_BACKDATE);
 
@@ -92,6 +90,7 @@ export default async function NewReceiptPage() {
         currentUserId={user.id}
         financialYearId={fy?.id || ""}
         cashbooks={cashbooks}
+        customers={customers}
         canBackdate={canBackdate}
       />
     </div>
