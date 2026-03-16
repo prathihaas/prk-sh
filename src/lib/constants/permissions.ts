@@ -91,4 +91,12 @@ export const PERMISSIONS = {
   ASSET_UPDATE: "asset:update",
   ASSET_AUDIT: "asset:audit",
   ASSET_ASSIGN: "asset:assign",
+
+  // Vehicle Register
+  VEHICLE_REGISTER_VIEW: "vehicle_register:view",
+  VEHICLE_REGISTER_MANAGE: "vehicle_register:manage",
+
+  // Sales Receipts
+  SALES_RECEIPT_CREATE: "sales_receipt:create",
+  SALES_RECEIPT_VIEW: "sales_receipt:view",
 } as const;

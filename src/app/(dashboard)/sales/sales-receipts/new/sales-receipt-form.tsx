@@ -1,0 +1,454 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Loader2, Receipt, ChevronDown, ChevronUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createSalesReceipt } from "@/lib/queries/sales-receipts";
+
+interface SalesReceiptFormProps {
+  userId: string;
+  companyId: string;
+  branchId: string;
+  financialYearId: string;
+}
+
+const INVOICE_TYPES = [
+  { value: "automobile_sale", label: "Automobile Sale (Car / SUV)" },
+  { value: "tractor_agri_sale", label: "Tractor / Agri Equipment Sale" },
+  { value: "service", label: "Vehicle Service" },
+  { value: "other_income", label: "Other Income" },
+] as const;
+
+const PAYMENT_MODES = [
+  { value: "cash", label: "Cash" },
+  { value: "cheque", label: "Cheque" },
+  { value: "upi", label: "UPI" },
+  { value: "bank_transfer", label: "Bank Transfer / NEFT / RTGS" },
+  { value: "card", label: "Debit / Credit Card" },
+  { value: "finance", label: "Finance / Loan" },
+] as const;
+
+function formatINR(val: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency", currency: "INR", maximumFractionDigits: 0,
+  }).format(val);
+}
+
+export function SalesReceiptForm({
+  userId,
+  companyId,
+  branchId,
+  financialYearId,
+}: SalesReceiptFormProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [showTax, setShowTax] = useState(false);
+
+  // Core fields
+  const [invoiceType, setInvoiceType] = useState<string>("");
+  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
+  const [dmsInvoiceNumber, setDmsInvoiceNumber] = useState("");
+
+  // Customer
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerGstin, setCustomerGstin] = useState("");
+
+  // Vehicle fields (shown for automobile / tractor types)
+  const [vehicleModel, setVehicleModel] = useState("");
+  const [vehicleVariant, setVehicleVariant] = useState("");
+  const [vinNumber, setVinNumber] = useState("");
+  const [engineNumber, setEngineNumber] = useState("");
+
+  // Amounts
+  const [baseAmount, setBaseAmount] = useState("");
+  const [discountAmount, setDiscountAmount] = useState("");
+  const [taxCgst, setTaxCgst] = useState("");
+  const [taxSgst, setTaxSgst] = useState("");
+  const [taxIgst, setTaxIgst] = useState("");
+  const [taxTcs, setTaxTcs] = useState("");
+
+  // Payment
+  const [paymentMode, setPaymentMode] = useState<string>("");
+  const [paymentReference, setPaymentReference] = useState("");
+
+  // Notes
+  const [notes, setNotes] = useState("");
+
+  const isVehicleType =
+    invoiceType === "automobile_sale" || invoiceType === "tractor_agri_sale";
+
+  // Grand total calculation
+  const base = parseFloat(baseAmount) || 0;
+  const discount = parseFloat(discountAmount) || 0;
+  const cgst = parseFloat(taxCgst) || 0;
+  const sgst = parseFloat(taxSgst) || 0;
+  const igst = parseFloat(taxIgst) || 0;
+  const tcs = parseFloat(taxTcs) || 0;
+  const grandTotal = base - discount + cgst + sgst + igst + tcs;
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!invoiceType) { toast.error("Please select an invoice type."); return; }
+    if (!customerName.trim()) { toast.error("Customer name is required."); return; }
+    if (!baseAmount || base <= 0) { toast.error("Sale amount must be greater than zero."); return; }
+    if (!paymentMode) { toast.error("Please select a payment mode."); return; }
+    if (!companyId || !branchId) { toast.error("Company and branch scope must be set in the header."); return; }
+
+    startTransition(async () => {
+      const result = await createSalesReceipt({
+        invoice_type: invoiceType as "automobile_sale" | "tractor_agri_sale" | "service" | "other_income",
+        invoice_date: invoiceDate,
+        dms_invoice_number: dmsInvoiceNumber || undefined,
+        customer_name: customerName,
+        customer_phone: customerPhone || undefined,
+        customer_gstin: customerGstin || undefined,
+        vehicle_model: vehicleModel || undefined,
+        vehicle_variant: vehicleVariant || undefined,
+        vin_number: vinNumber || undefined,
+        engine_number: engineNumber || undefined,
+        base_amount: base,
+        discount_amount: discount || undefined,
+        tax_cgst: cgst || undefined,
+        tax_sgst: sgst || undefined,
+        tax_igst: igst || undefined,
+        tax_tcs: tcs || undefined,
+        payment_mode: paymentMode as "cash" | "cheque" | "upi" | "bank_transfer" | "card" | "finance",
+        payment_reference: paymentReference || undefined,
+        notes: notes || undefined,
+        company_id: companyId,
+        branch_id: branchId,
+        financial_year_id: financialYearId,
+        created_by: userId,
+      });
+
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Sales receipt created successfully.");
+        router.push(`/invoices/${result.invoiceId}`);
+      }
+    });
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Invoice Info */}
+      <Card>
+        <CardHeader><CardTitle>Invoice Details</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Invoice Type *</Label>
+              <Select value={invoiceType} onValueChange={setInvoiceType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {INVOICE_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invoice_date">Invoice Date *</Label>
+              <Input
+                id="invoice_date"
+                type="date"
+                value={invoiceDate}
+                onChange={(e) => setInvoiceDate(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="dms_number">DMS Invoice Number</Label>
+              <Input
+                id="dms_number"
+                placeholder="e.g. INV/2025-26/0001"
+                value={dmsInvoiceNumber}
+                onChange={(e) => setDmsInvoiceNumber(e.target.value)}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Customer */}
+      <Card>
+        <CardHeader><CardTitle>Customer Details</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="customer_name">Customer Name *</Label>
+              <Input
+                id="customer_name"
+                placeholder="Full name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="customer_phone">Phone Number</Label>
+              <Input
+                id="customer_phone"
+                type="tel"
+                placeholder="+91 98765 43210"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="customer_gstin">Customer GSTIN</Label>
+              <Input
+                id="customer_gstin"
+                placeholder="22AAAAA0000A1Z5"
+                value={customerGstin}
+                onChange={(e) => setCustomerGstin(e.target.value.toUpperCase())}
+                className="font-mono"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Vehicle Details — only shown for vehicle-type invoices */}
+      {isVehicleType && (
+        <Card>
+          <CardHeader><CardTitle>Vehicle Details</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="vehicle_model">Model</Label>
+                <Input
+                  id="vehicle_model"
+                  placeholder={invoiceType === "tractor_agri_sale" ? "e.g. Mahindra 575 DI" : "e.g. Maruti Brezza"}
+                  value={vehicleModel}
+                  onChange={(e) => setVehicleModel(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="vehicle_variant">Variant / Specification</Label>
+                <Input
+                  id="vehicle_variant"
+                  placeholder="e.g. ZXi+, 4WD"
+                  value={vehicleVariant}
+                  onChange={(e) => setVehicleVariant(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="vin_number">VIN / Chassis Number</Label>
+                <Input
+                  id="vin_number"
+                  placeholder="17-digit VIN"
+                  value={vinNumber}
+                  onChange={(e) => setVinNumber(e.target.value.toUpperCase())}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="engine_number">Engine Number</Label>
+                <Input
+                  id="engine_number"
+                  placeholder="Engine serial number"
+                  value={engineNumber}
+                  onChange={(e) => setEngineNumber(e.target.value.toUpperCase())}
+                  className="font-mono"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Amounts */}
+      <Card>
+        <CardHeader><CardTitle>Amount Details</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="base_amount">Sale Amount (₹) *</Label>
+              <Input
+                id="base_amount"
+                type="number"
+                min={1}
+                step="0.01"
+                placeholder="0.00"
+                value={baseAmount}
+                onChange={(e) => setBaseAmount(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="discount_amount">Discount (₹)</Label>
+              <Input
+                id="discount_amount"
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="0.00"
+                value={discountAmount}
+                onChange={(e) => setDiscountAmount(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Tax section — collapsible */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowTax((p) => !p)}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {showTax ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {showTax ? "Hide tax fields" : "Add GST / TCS"}
+            </button>
+
+            {showTax && (
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="tax_cgst">CGST (₹)</Label>
+                  <Input
+                    id="tax_cgst"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="0.00"
+                    value={taxCgst}
+                    onChange={(e) => setTaxCgst(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tax_sgst">SGST (₹)</Label>
+                  <Input
+                    id="tax_sgst"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="0.00"
+                    value={taxSgst}
+                    onChange={(e) => setTaxSgst(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tax_igst">IGST (₹)</Label>
+                  <Input
+                    id="tax_igst"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="0.00"
+                    value={taxIgst}
+                    onChange={(e) => setTaxIgst(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tax_tcs">TCS (₹)</Label>
+                  <Input
+                    id="tax_tcs"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="0.00"
+                    value={taxTcs}
+                    onChange={(e) => setTaxTcs(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Grand total display */}
+          {base > 0 && (
+            <>
+              <Separator />
+              <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3">
+                <span className="text-sm font-medium">Grand Total</span>
+                <span className="text-xl font-bold tabular-nums">{formatINR(grandTotal)}</span>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Payment */}
+      <Card>
+        <CardHeader><CardTitle>Payment Details</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Payment Mode *</Label>
+              <Select value={paymentMode} onValueChange={setPaymentMode}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payment mode…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_MODES.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {paymentMode && paymentMode !== "cash" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="payment_ref">
+                  {paymentMode === "cheque" ? "Cheque Number" :
+                   paymentMode === "upi" ? "UPI Transaction ID" :
+                   paymentMode === "finance" ? "Finance Ref / Loan No." :
+                   "Reference Number"}
+                </Label>
+                <Input
+                  id="payment_ref"
+                  placeholder="Enter reference…"
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          {paymentMode === "cash" && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900 rounded px-3 py-2">
+              ⚠ Cash payment — system will check Section 269ST limit (₹2,00,000 per customer per financial year).
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Notes */}
+      <Card>
+        <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
+        <CardContent>
+          <Textarea
+            placeholder="Any additional notes or remarks…"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+          />
+        </CardContent>
+      </Card>
+
+      <Button type="submit" disabled={isPending} className="w-full" size="lg">
+        {isPending ? (
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        ) : (
+          <Receipt className="mr-2 h-5 w-5" />
+        )}
+        {isPending ? "Creating Sales Receipt…" : `Create Sales Receipt${grandTotal > 0 ? ` — ${formatINR(grandTotal)}` : ""}`}
+      </Button>
+    </form>
+  );
+}

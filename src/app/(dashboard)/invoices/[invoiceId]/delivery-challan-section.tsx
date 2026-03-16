@@ -18,6 +18,7 @@ import {
 import { TelegramOtpDialog } from "@/components/shared/telegram-otp-dialog";
 import { PrintDeliveryChallan } from "@/components/shared/print-delivery-challan";
 import { generateDeliveryChallan } from "@/lib/queries/invoices";
+import { markVehicleChallanIssued } from "@/lib/queries/vehicle-register";
 
 interface DeliveryChallanSectionProps {
   invoice: {
@@ -109,6 +110,10 @@ export function DeliveryChallanSection({
       challan_number: result.challan_number!,
       challan_date: new Date().toISOString().split("T")[0],
       delivery_address: deliveryAddress,
+    });
+    // Auto-update vehicle register status to challan_issued (silent — non-blocking)
+    markVehicleChallanIssued(invoice.id).catch(() => {
+      // Vehicle may not be in the register — that's fine, silently ignore
     });
     toast.success(`Delivery Challan ${result.challan_number} issued`);
     router.refresh();

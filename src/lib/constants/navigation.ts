@@ -27,6 +27,8 @@ import {
   UserRound,
   Package,
   QrCode,
+  Car,
+  ReceiptText,
 } from "lucide-react";
 import { PERMISSIONS } from "./permissions";
 import type { NavSection } from "@/types/navigation";
@@ -93,7 +95,7 @@ export const navigationItems: NavSection[] = [
         permission: PERMISSIONS.CASHBOOK_READ,
       },
       {
-        title: "Receipts",
+        title: "Payment Receipts",
         href: "/cash/receipts",
         icon: HandCoins,
         permission: PERMISSIONS.CASHBOOK_READ,
@@ -132,6 +134,18 @@ export const navigationItems: NavSection[] = [
         href: "/invoices",
         icon: FileText,
         permission: PERMISSIONS.INVOICE_READ,
+      },
+      {
+        title: "Sales Receipts",
+        href: "/sales/sales-receipts",
+        icon: ReceiptText,
+        permission: PERMISSIONS.SALES_RECEIPT_VIEW,
+      },
+      {
+        title: "Vehicle Register",
+        href: "/sales/vehicle-register",
+        icon: Car,
+        permission: PERMISSIONS.VEHICLE_REGISTER_VIEW,
       },
       {
         title: "Customers",

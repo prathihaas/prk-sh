@@ -12,6 +12,7 @@ import { formatINR } from "@/components/shared/currency-display";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { DeliveryChallanSection } from "./delivery-challan-section";
+import { PrintSalesReceipt } from "@/components/shared/print-sales-receipt";
 
 export default async function InvoiceDetailPage({
   params,
@@ -131,6 +132,16 @@ export default async function InvoiceDetailPage({
           )}
         </CardContent>
       </Card>
+
+      {/* Print Sales Receipt — shown only for is_sales_receipt invoices */}
+      {invoice.is_sales_receipt && (
+        <PrintSalesReceipt
+          invoice={invoice}
+          payment={payments[0] ?? null}
+          company={company}
+          branch={branch}
+        />
+      )}
 
       {/* Delivery Challan */}
       <DeliveryChallanSection

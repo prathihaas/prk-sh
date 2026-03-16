@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { receiptSchema, type ReceiptFormValues } from "@/lib/validators/receipt";
+import { getCashLimits } from "@/lib/queries/company-configs";
 
 /**
  * Get all receipt-type transactions across all cashbooks for a company/branch scope.
@@ -105,6 +106,34 @@ export async function createReceipt(
       error:
         "Backdated receipts are not allowed. You cannot enter a receipt with a date earlier than today. Contact your manager if you need special backdating access.",
     };
+  }
+
+  // ── Cash limit enforcement (Section 269ST) ──────────────────────────────
+  // Block if this receipt would push the customer's total cash receipts over the legal limit
+  if ((validated as Record<string, unknown>).payment_mode === "cash" && (validated as Record<string, unknown>).customer_id) {
+    const customerId = (validated as Record<string, unknown>).customer_id as string;
+    const limits = await getCashLimits(values.company_id);
+
+    // Sum all non-voided cash receipts for this customer this financial year
+    const { data: existingTxns } = await supabase
+      .from("cashbook_transactions")
+      .select("amount")
+      .eq("company_id", values.company_id)
+      .eq("customer_id", customerId)
+      .eq("txn_type", "receipt")
+      .eq("payment_mode", "cash")
+      .eq("is_voided", false)
+      .eq("financial_year_id", values.financial_year_id || "");
+
+    const existingCash = (existingTxns || []).reduce((sum, t) => sum + Number(t.amount), 0);
+    const newTotal = existingCash + Number(validated.amount);
+
+    if (newTotal > limits.customer_cash_per_fy) {
+      const fmt = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+      return {
+        error: `Cash limit exceeded (Section 269ST): This customer has already received ${fmt(existingCash)} in cash this financial year. Adding ${fmt(Number(validated.amount))} would exceed the limit of ${fmt(limits.customer_cash_per_fy)}. Use a non-cash payment mode.`,
+      };
+    }
   }
 
   // Find an open/reopened day for this cashbook + date

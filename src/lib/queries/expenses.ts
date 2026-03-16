@@ -8,6 +8,7 @@ import {
   expensePaymentSchema,
   type ExpensePaymentFormValues,
 } from "@/lib/validators/expense";
+import { getCashLimits } from "@/lib/queries/company-configs";
 
 /**
  * Get a single expense with full context for the printable voucher view:
@@ -255,6 +256,18 @@ export async function payExpense(
 
   if (expense.payment_date) {
     return { error: "This expense has already been paid." };
+  }
+
+  // ── Cash limit enforcement (Section 40A(3)) ──────────────────────────────
+  if (validated.payment_mode === "cash") {
+    const limits = await getCashLimits(values.company_id);
+    if (expense.amount > limits.expense_cash_per_payment) {
+      const fmt = (n: number) =>
+        new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+      return {
+        error: `Cash payment blocked (Section 40A(3)): The expense amount of ${fmt(expense.amount)} exceeds the cash payment limit of ${fmt(limits.expense_cash_per_payment)} per payment. Use a non-cash payment mode (cheque, bank transfer, UPI) to comply with the Income Tax Act.`,
+      };
+    }
   }
 
   // Find an open/reopened day for this cashbook + payment date
