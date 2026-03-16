@@ -163,7 +163,7 @@ export async function createSalesReceipt(
 
   if (invError) return { error: invError.message };
 
-  // ── For cash payment: try to post to the selected cashbook ───────────────
+  // ── For cash payment: post to the selected cashbook (mandatory — block if no open day) ──
   let cashbookTxnId: string | null = null;
   const cashbookId = validated.cashbook_id || null;
   if (validated.payment_mode === "cash" && cashbookId) {
@@ -175,40 +175,51 @@ export async function createSalesReceipt(
       .in("status", ["open", "reopened"])
       .single();
 
-    if (day) {
-      const narration = [
-        `Sales Receipt - ${validated.customer_name}`,
-        validated.dms_invoice_number
-          ? `Ref: ${validated.dms_invoice_number}`
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" | ");
-
-      const { data: txn } = await supabase
-        .from("cashbook_transactions")
-        .insert({
-          cashbook_id: cashbookId,
-          cashbook_day_id: day.id,
-          company_id: values.company_id,
-          branch_id: values.branch_id,
-          financial_year_id: values.financial_year_id || null,
-          txn_type: "receipt",
-          amount: grandTotal,
-          payment_mode: "cash",
-          narration,
-          party_name: validated.customer_name,
-          customer_id: validated.customer_id || null,
-          receipt_number: "PENDING",
-          receipt_hash: "PENDING",
-          created_by: values.created_by,
-        })
-        .select("id")
-        .single();
-
-      cashbookTxnId = txn?.id ?? null;
+    if (!day) {
+      // Delete the invoice we just created (rollback)
+      await supabase.from("invoices").delete().eq("id", invoice.id);
+      return {
+        error:
+          "No open cashbook day found for the selected cashbook on this date. Please open the day first from the Cashbooks section, then retry.",
+      };
     }
-    // If no open day: proceed without cashbook link, caller will show warning
+
+    const narration = [
+      `Sales Receipt - ${validated.customer_name}`,
+      validated.dms_invoice_number
+        ? `Ref: ${validated.dms_invoice_number}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
+    const { data: txn, error: txnError } = await supabase
+      .from("cashbook_transactions")
+      .insert({
+        cashbook_id: cashbookId,
+        cashbook_day_id: day.id,
+        company_id: values.company_id,
+        branch_id: values.branch_id,
+        financial_year_id: values.financial_year_id || null,
+        txn_type: "receipt",
+        amount: grandTotal,
+        payment_mode: "cash",
+        narration,
+        party_name: validated.customer_name,
+        customer_id: validated.customer_id || null,
+        receipt_number: "PENDING",
+        receipt_hash: "PENDING",
+        created_by: values.created_by,
+      })
+      .select("id")
+      .single();
+
+    if (txnError || !txn) {
+      await supabase.from("invoices").delete().eq("id", invoice.id);
+      return { error: txnError?.message ?? "Failed to create cashbook transaction." };
+    }
+
+    cashbookTxnId = txn.id;
   }
 
   // ── Record full payment immediately ─────────────────────────────────────

@@ -15,7 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { TelegramOtpDialog } from "@/components/shared/telegram-otp-dialog";
 import { PrintDeliveryChallan } from "@/components/shared/print-delivery-challan";
 import { generateDeliveryChallan } from "@/lib/queries/invoices";
 import { markVehicleChallanIssued } from "@/lib/queries/vehicle-register";
@@ -57,14 +56,14 @@ interface DeliveryChallanSectionProps {
   canIssue: boolean;
 }
 
-type Phase = "idle" | "address" | "otp" | "generating";
+type Phase = "idle" | "address" | "generating";
 
 export function DeliveryChallanSection({
   invoice,
   company,
   branch,
-  currentUserId,
-  companyId,
+  currentUserId: _currentUserId,
+  companyId: _companyId,
   canIssue,
 }: DeliveryChallanSectionProps) {
   const router = useRouter();
@@ -98,7 +97,7 @@ export function DeliveryChallanSection({
       localChallan?.delivery_address ?? invoice.delivery_address,
   };
 
-  const handleOtpVerified = async () => {
+  const handleGenerateChallan = async () => {
     setPhase("generating");
     const result = await generateDeliveryChallan(invoice.id, deliveryAddress);
     if (result.error) {
@@ -217,8 +216,8 @@ export function DeliveryChallanSection({
           <DialogHeader>
             <DialogTitle>Issue Delivery Challan</DialogTitle>
             <DialogDescription>
-              Confirm the delivery address. You will then verify via Telegram
-              OTP to generate the challan.
+              Confirm the delivery address, then click Generate to issue the
+              challan.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-2">
@@ -235,30 +234,32 @@ export function DeliveryChallanSection({
             <div className="flex gap-2">
               <Button
                 className="flex-1"
-                onClick={() => setPhase("otp")}
+                onClick={handleGenerateChallan}
+                disabled={phase === "generating"}
               >
-                <ShieldCheck className="mr-2 h-4 w-4" />
-                Proceed to OTP Verification
+                {phase === "generating" ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating…
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                    Generate Delivery Challan
+                  </>
+                )}
               </Button>
-              <Button variant="ghost" onClick={() => setPhase("idle")}>
+              <Button
+                variant="ghost"
+                onClick={() => setPhase("idle")}
+                disabled={phase === "generating"}
+              >
                 Cancel
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Step 2 — OTP */}
-      <TelegramOtpDialog
-        open={phase === "otp"}
-        step="issuer"
-        entityType="delivery_challan"
-        entityId={invoice.id}
-        targetUserId={currentUserId}
-        companyId={companyId}
-        onVerified={handleOtpVerified}
-        onClose={() => setPhase("idle")}
-      />
     </>
   );
 }

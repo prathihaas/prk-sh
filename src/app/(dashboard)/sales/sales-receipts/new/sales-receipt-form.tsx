@@ -212,6 +212,20 @@ export function SalesReceiptForm({
       toast.error("Please select a payment mode.");
       return;
     }
+    if (paymentMode === "cash") {
+      if (cashbooks.length === 0) {
+        toast.error("No active cash cashbook found for this branch. Cannot accept cash payment — please configure a cashbook first.");
+        return;
+      }
+      if (!cashbookId) {
+        toast.error("Please select a cashbook for cash payment.");
+        return;
+      }
+    }
+    if (paymentMode !== "cash" && !paymentReference.trim()) {
+      toast.error("Payment reference is required for non-cash payments (e.g. cheque number, UPI ID, transaction ref).");
+      return;
+    }
     if (insuranceDue && !insuranceCompany) {
       toast.error("Please select an insurance company.");
       return;
@@ -269,17 +283,7 @@ export function SalesReceiptForm({
       if (result.error) {
         toast.error(result.error);
       } else {
-        if (
-          "cashbookLinked" in result &&
-          result.cashbookLinked === false &&
-          cashbookId
-        ) {
-          toast.warning(
-            "Sales receipt created, but cash could not be posted to the selected cashbook — no open day found for this date. Please add the transaction manually in the cashbook."
-          );
-        } else {
-          toast.success("Sales receipt created successfully.");
-        }
+        toast.success("Sales receipt created successfully.");
         router.push(`/invoices/${result.invoiceId}`);
       }
     });
@@ -852,12 +856,12 @@ export function SalesReceiptForm({
               <div className="space-y-1.5">
                 <Label htmlFor="payment_ref">
                   {paymentMode === "cheque"
-                    ? "Cheque Number"
+                    ? "Cheque Number *"
                     : paymentMode === "upi"
-                    ? "UPI Transaction ID"
+                    ? "UPI Transaction ID *"
                     : paymentMode === "finance"
-                    ? "Finance Ref / Loan No."
-                    : "Reference Number"}
+                    ? "Finance Ref / Loan No. *"
+                    : "Reference Number *"}
                 </Label>
                 <Input
                   id="payment_ref"
@@ -865,24 +869,22 @@ export function SalesReceiptForm({
                   value={paymentReference}
                   onChange={(e) => setPaymentReference(e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground">Required for non-cash payments.</p>
               </div>
             )}
           </div>
 
-          {/* Cash-specific: cashbook selector */}
+          {/* Cash-specific: cashbook selector (mandatory) */}
           {paymentMode === "cash" && (
             <div className="space-y-3">
               {cashbooks.length > 0 ? (
                 <div className="space-y-1.5">
-                  <Label>Cash Received In</Label>
+                  <Label>Cash Received In *</Label>
                   <Select value={cashbookId} onValueChange={setCashbookId}>
                     <SelectTrigger className="max-w-sm">
-                      <SelectValue placeholder="Select cashbook (optional)…" />
+                      <SelectValue placeholder="Select cashbook…" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">
-                        — No cashbook (record separately) —
-                      </SelectItem>
                       {cashbooks.map((cb) => (
                         <SelectItem key={cb.id} value={cb.id}>
                           {cb.name}
@@ -891,15 +893,16 @@ export function SalesReceiptForm({
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    If selected, cash will be auto-posted to this cashbook (requires
-                    an open cashbook day for today).
+                    Cash will be posted to this cashbook. The cashbook day must be
+                    open for the selected invoice date.
                   </p>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">
-                  No active cash cashbooks found for this branch. Cash will be
-                  recorded without a cashbook entry.
-                </p>
+                <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                  <strong>No active cash cashbook found</strong> for this branch.
+                  Please configure a cashbook in the Cashbooks section before
+                  accepting cash payments.
+                </div>
               )}
 
               <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900 rounded px-3 py-2">
