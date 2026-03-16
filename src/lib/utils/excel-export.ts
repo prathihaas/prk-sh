@@ -60,17 +60,42 @@ export async function exportToExcel(
 
 // Convenience wrappers for each module
 export function exportTransactions(transactions: Record<string, unknown>[]) {
+  // Pre-format datetime and flatten nested objects if present
+  const rows = transactions.map((t) => {
+    const creator = t.creator as { full_name?: string } | null;
+    const contra = t.contra_cashbook as { name?: string } | null;
+    const voider = t.voider as { full_name?: string } | null;
+    const createdAt = t.created_at
+      ? new Date(String(t.created_at)).toLocaleString("en-IN", {
+          day: "2-digit", month: "short", year: "numeric",
+          hour: "2-digit", minute: "2-digit",
+        })
+      : "";
+    return {
+      ...t,
+      created_at_fmt: createdAt,
+      is_voided: t.is_voided ? "Yes" : "No",
+      created_by_name: creator?.full_name || (t.created_by_name as string) || "",
+      contra_cashbook_name: contra?.name || (t.contra_cashbook_name as string) || "",
+      voided_by_name: voider?.full_name || (t.voided_by_name as string) || "",
+    };
+  });
+
   return exportToExcel(
-    transactions,
+    rows,
     [
       { key: "receipt_number", header: "Receipt No", width: 18 },
-      { key: "created_at", header: "Date & Time", width: 22, format: "date" },
+      { key: "created_at_fmt", header: "Date & Time", width: 24 },
       { key: "txn_type", header: "Type", width: 12 },
       { key: "amount", header: "Amount (INR)", width: 16, format: "currency" },
       { key: "payment_mode", header: "Payment Mode", width: 16 },
-      { key: "party_name", header: "Party Name", width: 25 },
+      { key: "party_name", header: "Party Name", width: 28 },
       { key: "narration", header: "Narration", width: 40 },
+      { key: "created_by_name", header: "Created By", width: 22 },
+      { key: "contra_cashbook_name", header: "Contra Cashbook", width: 22 },
       { key: "is_voided", header: "Voided?", width: 10 },
+      { key: "void_reason", header: "Void Reason", width: 35 },
+      { key: "voided_by_name", header: "Voided By", width: 22 },
     ],
     `transactions_${new Date().toISOString().split("T")[0]}`
   );

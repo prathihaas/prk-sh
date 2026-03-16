@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getUserPermissions } from "@/lib/auth/helpers";
+import { getUserPermissions, getUserAssignments, getMinHierarchyLevel } from "@/lib/auth/helpers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
-import { getRolesWithPermissions } from "@/lib/queries/roles";
+import { getRolesWithPermissions, getAllPermissions } from "@/lib/queries/roles";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,28 +20,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-// Group permissions by module for display
-function groupByModule(
-  permissions: { id: string; module: string; action: string; description: string }[]
-) {
-  const grouped: Record<string, typeof permissions> = {};
-  for (const perm of permissions) {
-    if (!grouped[perm.module]) grouped[perm.module] = [];
-    grouped[perm.module].push(perm);
-  }
-  return grouped;
-}
+import { RolePermissionsEditor } from "@/components/shared/role-permissions-editor";
+import { ShieldCheck, ShieldAlert } from "lucide-react";
 
 function formatRoleName(name: string) {
-  return name.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
-}
-
-function formatModuleName(name: string) {
-  return name.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
-}
-
-function formatActionName(name: string) {
   return name.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
 }
 
@@ -52,17 +34,50 @@ export default async function RolesPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const permissions = await getUserPermissions(supabase, user.id);
+  const [permissions, assignments] = await Promise.all([
+    getUserPermissions(supabase, user.id),
+    getUserAssignments(supabase, user.id),
+  ]);
+
   if (!permissions.has(PERMISSIONS.ADMIN_MANAGE_USERS)) redirect("/dashboard");
 
-  const roles = await getRolesWithPermissions();
+  const minHierarchyLevel = getMinHierarchyLevel(assignments);
+  // Only Owner (level 1) and Admin (level 2) can edit role permissions
+  const canEdit = minHierarchyLevel <= 2;
+
+  const [roles, allPermissions] = await Promise.all([
+    getRolesWithPermissions(),
+    getAllPermissions(),
+  ]);
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Roles & Permissions"
-        description="System roles and their assigned permissions (read-only)"
+        title="User Roles & Permissions"
+        description={
+          canEdit
+            ? "Manage which permissions are assigned to each role."
+            : "View roles and their permissions (read-only for your access level)."
+        }
       />
+
+      {/* Access level indicator */}
+      {canEdit ? (
+        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950 px-4 py-3 text-sm text-green-800 dark:text-green-200">
+          <ShieldCheck className="h-4 w-4 shrink-0" />
+          <span>
+            You have <strong>Owner / Admin</strong> access — you can edit role permissions below.
+            Click <strong>Edit</strong> on any role card to modify its permissions.
+          </span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          <ShieldAlert className="h-4 w-4 shrink-0" />
+          <span>
+            You can view role permissions but only <strong>Owner and Admin</strong> users can make changes.
+          </span>
+        </div>
+      )}
 
       {/* Roles Overview Table */}
       <Card>
@@ -104,60 +119,12 @@ export default async function RolesPage() {
         </CardContent>
       </Card>
 
-      {/* Detailed Permissions per Role */}
-      <div className="grid gap-6">
-        {roles.map((role: any) => {
-          const perms = (role.role_permissions || [])
-            .map((rp: { permission: { id: string; module: string; action: string; description: string } | null }) => rp.permission)
-            .filter(Boolean) as { id: string; module: string; action: string; description: string }[];
-          const grouped = groupByModule(perms);
-          const modules = Object.keys(grouped).sort();
-
-          return (
-            <Card key={role.id}>
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <CardTitle className="text-lg">
-                    {formatRoleName(role.name)}
-                  </CardTitle>
-                  <Badge variant="secondary">Level {role.hierarchy_level}</Badge>
-                  <Badge variant="outline">{perms.length} permissions</Badge>
-                </div>
-                <CardDescription>{role.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {modules.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No permissions assigned to this role.
-                  </p>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {modules.map((mod) => (
-                      <div key={mod} className="space-y-2">
-                        <h4 className="text-sm font-semibold text-primary">
-                          {formatModuleName(mod)}
-                        </h4>
-                        <div className="flex flex-wrap gap-1">
-                          {grouped[mod].map((perm) => (
-                            <Badge
-                              key={perm.id}
-                              variant="secondary"
-                              className="text-xs"
-                              title={perm.description}
-                            >
-                              {formatActionName(perm.action)}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      {/* Editable / Viewable Role Permissions per Role */}
+      <RolePermissionsEditor
+        roles={roles as any}
+        allPermissions={allPermissions as any}
+        canEdit={canEdit}
+      />
     </div>
   );
 }

@@ -11,7 +11,12 @@ export async function getTransactions(cashbookDayId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("cashbook_transactions")
-    .select("*")
+    .select(`
+      *,
+      creator:user_profiles!cashbook_transactions_created_by_fkey(full_name),
+      contra_cashbook:cashbooks!cashbook_transactions_contra_cashbook_id_fkey(name),
+      voider:user_profiles!cashbook_transactions_voided_by_fkey(full_name)
+    `)
     .eq("cashbook_day_id", cashbookDayId)
     .order("created_at", { ascending: false });
 

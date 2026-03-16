@@ -20,6 +20,16 @@ interface PrintExpenseVoucherProps {
     category?: { name: string } | null;
     submitter?: { full_name?: string | null; email?: string | null } | null;
     cashbook?: { name: string } | null;
+    // Per-approver tracking
+    branch_approved_by?: string | null;
+    branch_approved_at?: string | null;
+    accounts_approved_by?: string | null;
+    accounts_approved_at?: string | null;
+    owner_approved_by?: string | null;
+    owner_approved_at?: string | null;
+    branch_approver?: { full_name?: string | null } | null;
+    accounts_approver?: { full_name?: string | null } | null;
+    owner_approver?: { full_name?: string | null } | null;
   };
   voucher_number?: string;
   company: {
@@ -262,27 +272,60 @@ export function PrintExpenseVoucher({
           <p className="text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wide">
             Approval Trail
           </p>
-          <div className="flex gap-6 text-xs">
+          <div className="flex gap-3 text-xs">
             {[
-              { key: "submitted", label: "Submitted" },
-              { key: "branch_approved", label: "Branch" },
-              { key: "accounts_approved", label: "Accounts" },
-              { key: "owner_approved", label: "Owner" },
-            ].map(({ key, label }) => {
+              {
+                key: "submitted",
+                label: "Submitted",
+                approverName: expense.submitter?.full_name,
+                approvedAt: expense.expense_date,
+              },
+              {
+                key: "branch_approved",
+                label: "Branch Approved",
+                approverName: expense.branch_approver?.full_name,
+                approvedAt: expense.branch_approved_at,
+              },
+              {
+                key: "accounts_approved",
+                label: "Accounts Approved",
+                approverName: expense.accounts_approver?.full_name,
+                approvedAt: expense.accounts_approved_at,
+              },
+              {
+                key: "owner_approved",
+                label: "Owner Approved",
+                approverName: expense.owner_approver?.full_name,
+                approvedAt: expense.owner_approved_at,
+              },
+            ].map(({ key, label, approverName, approvedAt }) => {
               const idx = stageOrder.indexOf(key);
               const isApproved = idx <= currentStageIndex && currentStageIndex >= 0;
+              const dateStr = approvedAt
+                ? new Date(approvedAt).toLocaleString("en-IN", {
+                    day: "2-digit", month: "short", year: "numeric",
+                    hour: "2-digit", minute: "2-digit",
+                  })
+                : null;
               return (
-                <div key={key} className="text-center flex-1">
-                  <div
-                    className={`w-full h-8 border flex items-center justify-center font-medium text-sm ${
-                      isApproved
-                        ? "border-gray-800 bg-gray-100"
-                        : "border-dashed border-gray-400"
-                    }`}
-                  >
-                    {isApproved ? "\u2713" : ""}
+                <div key={key} className="flex-1 border rounded text-center overflow-hidden" style={{ borderColor: isApproved ? "#1f2937" : "#d1d5db", borderStyle: isApproved ? "solid" : "dashed" }}>
+                  <div className={`py-1.5 px-1 ${isApproved ? "bg-gray-100" : ""}`}>
+                    <span className="text-base font-bold">
+                      {isApproved ? "✓" : ""}
+                    </span>
                   </div>
-                  <p className="mt-1 text-gray-600">{label}</p>
+                  <div className="px-1 pb-1.5 space-y-0.5">
+                    <p className="font-semibold text-gray-700 leading-tight" style={{ fontSize: "10px" }}>{label}</p>
+                    {isApproved && approverName && (
+                      <p className="text-gray-800 font-medium leading-tight" style={{ fontSize: "9px" }}>{approverName}</p>
+                    )}
+                    {isApproved && dateStr && (
+                      <p className="text-gray-500 leading-tight" style={{ fontSize: "8px" }}>{dateStr}</p>
+                    )}
+                    {!isApproved && (
+                      <p className="text-gray-400 leading-tight" style={{ fontSize: "9px" }}>Pending</p>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -301,18 +344,26 @@ export function PrintExpenseVoucher({
               <div className="w-36 border-b border-gray-800 mb-1" />
               <p className="text-xs font-medium">Prepared By</p>
               {expense.submitter?.full_name && (
-                <p className="text-xs text-gray-500">{expense.submitter.full_name}</p>
+                <p className="text-xs text-gray-600">{expense.submitter.full_name}</p>
               )}
             </div>
             <div className="text-center">
               <div className="w-36 border-b border-gray-800 mb-1" />
               <p className="text-xs font-medium">Checked By</p>
-              <p className="text-xs text-gray-400">(Accounts Dept.)</p>
+              {expense.accounts_approver?.full_name ? (
+                <p className="text-xs text-gray-600">{expense.accounts_approver.full_name}</p>
+              ) : (
+                <p className="text-xs text-gray-400">(Accounts Dept.)</p>
+              )}
             </div>
             <div className="text-center">
               <div className="w-36 border-b border-gray-800 mb-1" />
               <p className="text-xs font-medium">Authorised By</p>
-              <p className="text-xs text-gray-400">(Management)</p>
+              {expense.owner_approver?.full_name ? (
+                <p className="text-xs text-gray-600">{expense.owner_approver.full_name}</p>
+              ) : (
+                <p className="text-xs text-gray-400">(Management)</p>
+              )}
             </div>
           </div>
         </div>

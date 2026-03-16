@@ -22,7 +22,10 @@ export async function getExpenseWithContext(id: string) {
       `*,
        category:expense_categories(name),
        submitter:user_profiles!expenses_submitted_by_fkey(full_name, email),
-       cashbook:cashbooks!expenses_paid_via_cashbook_id_fkey(name)`
+       cashbook:cashbooks!expenses_paid_via_cashbook_id_fkey(name),
+       branch_approver:user_profiles!expenses_branch_approved_by_fkey(full_name),
+       accounts_approver:user_profiles!expenses_accounts_approved_by_fkey(full_name),
+       owner_approver:user_profiles!expenses_owner_approved_by_fkey(full_name)`
     )
     .eq("id", id)
     .single();
@@ -145,9 +148,16 @@ export async function submitExpense(id: string) {
 
 export async function approveExpenseBranch(id: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
   const { error } = await supabase
     .from("expenses")
-    .update({ approval_status: "branch_approved" })
+    .update({
+      approval_status: "branch_approved",
+      branch_approved_by: user.id,
+      branch_approved_at: new Date().toISOString(),
+    })
     .eq("id", id)
     .in("approval_status", ["submitted"]);
 
@@ -158,9 +168,16 @@ export async function approveExpenseBranch(id: string) {
 
 export async function approveExpenseAccounts(id: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
   const { error } = await supabase
     .from("expenses")
-    .update({ approval_status: "accounts_approved" })
+    .update({
+      approval_status: "accounts_approved",
+      accounts_approved_by: user.id,
+      accounts_approved_at: new Date().toISOString(),
+    })
     .eq("id", id)
     .in("approval_status", ["branch_approved"]);
 
@@ -171,9 +188,16 @@ export async function approveExpenseAccounts(id: string) {
 
 export async function approveExpenseOwner(id: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
   const { error } = await supabase
     .from("expenses")
-    .update({ approval_status: "owner_approved" })
+    .update({
+      approval_status: "owner_approved",
+      owner_approved_by: user.id,
+      owner_approved_at: new Date().toISOString(),
+    })
     .eq("id", id)
     .in("approval_status", ["accounts_approved"]);
 
