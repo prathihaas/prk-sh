@@ -65,10 +65,11 @@ export default async function VehicleDetailPage({
         })
       : null;
 
-  const isOverdue =
+  const isOverdue = Boolean(
     vehicle.expected_delivery_date &&
     new Date(String(vehicle.expected_delivery_date)) < new Date() &&
-    vehicle.status !== "delivered";
+    vehicle.status !== "delivered"
+  );
 
   return (
     <div className="space-y-6">
@@ -169,7 +170,7 @@ export default async function VehicleDetailPage({
             </Card>
           )}
 
-          {!customer && vehicle.customer_name && (
+          {!customer && Boolean(vehicle.customer_name) && (
             <Card>
               <CardHeader><CardTitle className="text-base">Customer</CardTitle></CardHeader>
               <CardContent>
@@ -196,7 +197,7 @@ export default async function VehicleDetailPage({
                     </Link>
                   </Button>
                 </div>
-                {invoice.delivery_challan_number && (
+                {Boolean(invoice.delivery_challan_number) && (
                   <div className="rounded-md border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950 p-3 text-sm">
                     <p className="font-medium text-green-800 dark:text-green-200">✓ Delivery Challan Issued</p>
                     <p className="text-green-700 dark:text-green-300 text-xs">No: {String(invoice.delivery_challan_number)} • {String(invoice.delivery_challan_date || "")}</p>
@@ -215,12 +216,12 @@ export default async function VehicleDetailPage({
             </Card>
           )}
 
-          {vehicle.notes && (
+          {Boolean(vehicle.notes) && (
             <Card>
               <CardHeader><CardTitle className="text-base">Notes</CardTitle></CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">{String(vehicle.notes)}</p>
-                {vehicle.delay_reason && (
+                {Boolean(vehicle.delay_reason) && (
                   <div className="mt-2 rounded border border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950 p-2 text-xs text-red-700 dark:text-red-300">
                     <span className="font-medium">Delay Reason: </span>{String(vehicle.delay_reason)}
                   </div>

@@ -125,7 +125,7 @@ export async function createReceipt(
       .eq("is_voided", false)
       .eq("financial_year_id", values.financial_year_id || "");
 
-    const existingCash = (existingTxns || []).reduce((sum, t) => sum + Number(t.amount), 0);
+    const existingCash = (existingTxns || []).reduce((sum: number, t: { amount: unknown }) => sum + Number(t.amount), 0);
     const newTotal = existingCash + Number(validated.amount);
 
     if (newTotal > limits.customer_cash_per_fy) {

@@ -31,7 +31,7 @@ export async function getCashReceivedFromCustomer(
     .eq("payment_mode", "cash")
     .eq("company_id", companyId);
 
-  const txnTotal = (txns || []).reduce((sum, t) => sum + Number(t.amount), 0);
+  const txnTotal = (txns || []).reduce((sum: number, t: { amount: unknown }) => sum + Number(t.amount), 0);
 
   // Filter invoice payments by customer + FY
   const invTotal = (invPayments || [])
@@ -39,7 +39,7 @@ export async function getCashReceivedFromCustomer(
       const inv = p.invoice as { customer_id?: string; financial_year_id?: string } | null;
       return inv?.customer_id === customerId && inv?.financial_year_id === financialYearId;
     })
-    .reduce((sum, p) => sum + Number(p.amount), 0);
+    .reduce((sum: number, p: Record<string, unknown>) => sum + Number(p.amount), 0);
 
   return txnTotal + invTotal;
 }

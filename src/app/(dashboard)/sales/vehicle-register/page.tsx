@@ -59,7 +59,7 @@ export default async function VehicleRegisterPage() {
           const customer = v.customer as { full_name?: string; phone?: string } | null;
           const invoice = v.invoice as { dms_invoice_number?: string } | null;
           const days = daysSince(String(v.arrived_at));
-          const isDelayed = v.expected_delivery_date && new Date(String(v.expected_delivery_date)) < new Date() && v.status !== "delivered";
+          const isDelayed = Boolean(v.expected_delivery_date && new Date(String(v.expected_delivery_date)) < new Date() && v.status !== "delivered");
 
           return (
             <div key={String(v.id)} className="flex items-center justify-between py-3 px-1 gap-4">

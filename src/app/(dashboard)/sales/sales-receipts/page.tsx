@@ -84,7 +84,7 @@ export default async function SalesReceiptsPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-medium text-sm">{String(r.customer_name)}</p>
                       <Badge variant="outline" className="text-xs">{formatType(String(r.invoice_type))}</Badge>
-                      {r.delivery_challan_number && (
+                      {Boolean(r.delivery_challan_number) && (
                         <Badge variant="secondary" className="text-xs gap-1">
                           <CheckCircle2 className="h-3 w-3 text-green-600" />
                           Challan Issued
