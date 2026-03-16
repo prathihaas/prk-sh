@@ -21,7 +21,7 @@ export const expensePaymentSchema = z.object({
   cashbook_id: z.string().min(1, "Select a cashbook"),
   payment_date: z.string().min(1, "Payment date is required"),
   payment_mode: z.enum(
-    ["cash", "cheque", "upi", "bank_transfer", "card", "finance"],
+    ["cash", "cheque", "upi", "bank_transfer", "card", "finance", "credit"],
     { error: "Select payment mode" }
   ),
   notes: z.string().max(1000).optional().or(z.literal("")),

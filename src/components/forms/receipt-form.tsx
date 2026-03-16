@@ -55,6 +55,7 @@ const PAYMENT_MODES = [
   { value: "bank_transfer", label: "Bank Transfer" },
   { value: "card", label: "Card" },
   { value: "finance", label: "Finance" },
+  { value: "credit", label: "Credit" },
 ];
 
 const OTP_STEPS: ("cashier" | "executive" | "manager")[] = [

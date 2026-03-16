@@ -38,9 +38,12 @@ interface PrintDeliveryChallanProps {
 }
 
 const INVOICE_TYPE_LABELS: Record<string, string> = {
+  automobile_sale: "Vehicle Sale",
   automobile: "Vehicle Sale",
+  tractor_agri_sale: "Tractor / Agri Sale",
   tractor: "Tractor / Agri Sale",
   service: "Vehicle Service",
+  spares_counter_sale: "Spares Counter Sale",
   bank_payment: "Bank Payment",
   other_income: "Other Income",
 };
@@ -85,7 +88,7 @@ export function PrintDeliveryChallan({ invoice, company, branch }: PrintDelivery
       <div className="no-print flex items-center gap-3 mb-4">
         <Button onClick={() => window.print()} size="lg">
           <Printer className="mr-2 h-5 w-5" />
-          Print Delivery Challan
+          Print Gate Pass
         </Button>
         <span className="text-sm text-muted-foreground">A4 format</span>
       </div>
@@ -100,7 +103,7 @@ export function PrintDeliveryChallan({ invoice, company, branch }: PrintDelivery
             // eslint-disable-next-line @next/next/no-img-element
             <img src={company.logo_url} alt={company.name} className="h-12 object-contain mx-auto mb-2" />
           )}
-          <h1 className="text-xl font-bold tracking-widest mb-1">DELIVERY CHALLAN</h1>
+          <h1 className="text-xl font-bold tracking-widest mb-1">GATE PASS</h1>
           {company && <h2 className="text-lg font-semibold">{company.name}</h2>}
           {branch && (
             <p className="text-sm">
@@ -113,12 +116,12 @@ export function PrintDeliveryChallan({ invoice, company, branch }: PrintDelivery
           )}
         </div>
 
-        {/* Challan Meta */}
+        {/* Gate Pass Meta */}
         <div className="border-b-2 border-gray-800 print-border px-6 py-3">
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <p className="text-sm">
-                <span className="font-semibold">Challan No:</span>{" "}
+                <span className="font-semibold">Gate Pass No:</span>{" "}
                 <span className="font-mono font-bold">
                   {invoice.delivery_challan_number || "DC/PENDING"}
                 </span>
@@ -138,7 +141,7 @@ export function PrintDeliveryChallan({ invoice, company, branch }: PrintDelivery
             </div>
             <div className="text-right space-y-1">
               <p className="text-sm">
-                <span className="font-semibold">Challan Date:</span> {challanDate}
+                <span className="font-semibold">Gate Pass Date:</span> {challanDate}
               </p>
             </div>
           </div>
@@ -198,7 +201,7 @@ export function PrintDeliveryChallan({ invoice, company, branch }: PrintDelivery
         <div className="border-b-2 border-gray-800 print-border px-6 py-3">
           <p className="text-xs text-gray-600">
             <span className="font-semibold">Terms &amp; Conditions:</span> E.&amp;O.E. — This
-            delivery challan is subject to the terms of the original invoice. Goods once delivered
+            gate pass is subject to the terms of the original invoice. Goods once delivered
             cannot be returned without prior authorization. Subject to local jurisdiction.
           </p>
         </div>
@@ -223,7 +226,7 @@ export function PrintDeliveryChallan({ invoice, company, branch }: PrintDelivery
         <div className="border-t border-gray-300 px-6 py-2">
           <div className="flex justify-between items-center text-xs text-gray-500">
             <span className="font-mono">Invoice ID: {invoice.id.substring(0, 16)}...</span>
-            <span>Computer generated delivery challan</span>
+            <span>Computer generated gate pass</span>
           </div>
         </div>
       </div>

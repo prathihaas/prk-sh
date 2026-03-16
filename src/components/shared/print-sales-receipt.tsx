@@ -11,12 +11,14 @@ const PAYMENT_MODE_LABELS: Record<string, string> = {
   bank_transfer: "Bank Transfer / NEFT / RTGS",
   card: "Debit / Credit Card",
   finance: "Finance / Loan",
+  credit: "Credit (Pay Later)",
 };
 
 const INVOICE_TYPE_LABELS: Record<string, string> = {
   automobile_sale: "Vehicle Sale",
   tractor_agri_sale: "Tractor / Agri Equipment Sale",
   service: "Vehicle Service",
+  spares_counter_sale: "Spares Counter Sales",
   other_income: "Other Income",
 };
 

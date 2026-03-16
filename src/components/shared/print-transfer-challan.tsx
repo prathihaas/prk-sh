@@ -36,6 +36,7 @@ interface CompanyInfo {
   address?: string | null;
   phone?: string | null;
   logo_url?: string | null;
+  gst_number?: string | null;
 }
 
 interface PrintTransferChallanProps {
@@ -134,6 +135,11 @@ export function PrintTransferChallan({
             <img src={fromCompany.logo_url} alt={fromCompany.name} className="logo" />
           )}
           <div className="company-name">{fromCompany.name}</div>
+          {fromCompany.gst_number && (
+            <div style={{ fontSize: "11px", fontWeight: "bold", marginTop: "2px" }}>
+              GSTIN: {fromCompany.gst_number}
+            </div>
+          )}
           {fromBranch.address && <div style={{ fontSize: "10px", color: "#555" }}>{fromBranch.address}</div>}
           <div className="challan-title">TRANSFER CHALLAN</div>
           <div className="challan-num">

@@ -60,6 +60,7 @@ const INVOICE_TYPES = [
   { value: "automobile_sale", label: "Automobile Sale (Car / SUV)" },
   { value: "tractor_agri_sale", label: "Tractor / Agri Equipment Sale" },
   { value: "service", label: "Vehicle Service" },
+  { value: "spares_counter_sale", label: "Spares Counter Sales" },
   { value: "other_income", label: "Other Income" },
 ] as const;
 
@@ -70,6 +71,7 @@ const PAYMENT_MODES = [
   { value: "bank_transfer", label: "Bank Transfer / NEFT / RTGS" },
   { value: "card", label: "Debit / Credit Card" },
   { value: "finance", label: "Finance / Loan" },
+  { value: "credit", label: "Credit (Pay Later)" },
 ] as const;
 
 function formatINR(val: number) {
@@ -128,6 +130,9 @@ export function SalesReceiptForm({
   const [financeCompany, setFinanceCompany] = useState<string>("");
   const [financeAmount, setFinanceAmount] = useState("");
 
+  // ── Insurance amount (receivable from insurance company) ─────────────────
+  const [insuranceAmount, setInsuranceAmount] = useState("");
+
   // ── Amounts ──────────────────────────────────────────────────────────────
   const [baseAmount, setBaseAmount] = useState("");
   const [discountAmount, setDiscountAmount] = useState("");
@@ -148,6 +153,7 @@ export function SalesReceiptForm({
   const isVehicleType =
     invoiceType === "automobile_sale" || invoiceType === "tractor_agri_sale";
   const isServiceType = invoiceType === "service";
+  const isSpares = invoiceType === "spares_counter_sale";
 
   // ── Grand total calculation ───────────────────────────────────────────────
   const base = parseFloat(baseAmount) || 0;
@@ -157,6 +163,11 @@ export function SalesReceiptForm({
   const igst = parseFloat(taxIgst) || 0;
   const tcs = parseFloat(taxTcs) || 0;
   const grandTotal = base - discount + cgst + sgst + igst + tcs;
+
+  // ── Customer pays (net of finance / insurance deductions) ────────────────
+  const finAmt = financeDue ? (parseFloat(financeAmount) || 0) : 0;
+  const insAmt = insuranceDue ? (parseFloat(insuranceAmount) || 0) : 0;
+  const customerAmount = grandTotal - finAmt - insAmt;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -187,6 +198,7 @@ export function SalesReceiptForm({
     // Reset type-specific fields when type changes
     setInsuranceDue(false);
     setInsuranceCompany("");
+    setInsuranceAmount("");
     setFinanceDue(false);
     setFinanceCompany("");
     setFinanceAmount("");
@@ -222,7 +234,8 @@ export function SalesReceiptForm({
         return;
       }
     }
-    if (paymentMode !== "cash" && !paymentReference.trim()) {
+    // Reference required for non-cash, non-credit payments
+    if (paymentMode !== "cash" && paymentMode !== "credit" && !paymentReference.trim()) {
       toast.error("Payment reference is required for non-cash payments (e.g. cheque number, UPI ID, transaction ref).");
       return;
     }
@@ -241,6 +254,7 @@ export function SalesReceiptForm({
           | "automobile_sale"
           | "tractor_agri_sale"
           | "service"
+          | "spares_counter_sale"
           | "other_income",
         invoice_date: invoiceDate,
         dms_invoice_number: dmsInvoiceNumber || undefined,
@@ -264,11 +278,14 @@ export function SalesReceiptForm({
           | "upi"
           | "bank_transfer"
           | "card"
-          | "finance",
+          | "finance"
+          | "credit",
         payment_reference: paymentReference || undefined,
         cashbook_id: cashbookId || undefined,
         insurance_due: insuranceDue || undefined,
         insurance_company: insuranceDue ? insuranceCompany : undefined,
+        insurance_amount:
+          insuranceDue && insuranceAmount ? parseFloat(insuranceAmount) : undefined,
         finance_due: financeDue || undefined,
         finance_company: financeDue ? financeCompany : undefined,
         finance_amount:
@@ -659,47 +676,86 @@ export function SalesReceiptForm({
               </div>
 
               {insuranceDue && (
-                <div className="ml-6 space-y-1.5">
-                  <Label>Insurance Company *</Label>
-                  {insuranceCompanies.length > 0 ? (
-                    <Select
-                      value={insuranceCompany}
-                      onValueChange={setInsuranceCompany}
-                    >
-                      <SelectTrigger className="max-w-sm">
-                        <SelectValue placeholder="Select insurance company…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {insuranceCompanies.map((c) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      placeholder="Insurance company name"
-                      value={insuranceCompany}
-                      onChange={(e) => setInsuranceCompany(e.target.value)}
-                      className="max-w-sm"
-                    />
-                  )}
-                  {insuranceCompanies.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      No companies configured.{" "}
-                      <a
-                        href="/settings/company-partners"
-                        target="_blank"
-                        className="underline underline-offset-2"
+                <div className="ml-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Insurance Company *</Label>
+                    {insuranceCompanies.length > 0 ? (
+                      <Select
+                        value={insuranceCompany}
+                        onValueChange={setInsuranceCompany}
                       >
-                        Add in Settings
-                      </a>
-                      .
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select insurance company…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {insuranceCompanies.map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        placeholder="Insurance company name"
+                        value={insuranceCompany}
+                        onChange={(e) => setInsuranceCompany(e.target.value)}
+                      />
+                    )}
+                    {insuranceCompanies.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        No companies configured.{" "}
+                        <a
+                          href="/settings/company-partners"
+                          target="_blank"
+                          className="underline underline-offset-2"
+                        >
+                          Add in Settings
+                        </a>
+                        .
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="insurance_amount">Insurance Amount (₹)</Label>
+                    <Input
+                      id="insurance_amount"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="0.00"
+                      value={insuranceAmount}
+                      onChange={(e) => setInsuranceAmount(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Amount owed to dealer by insurance company — deducted from customer&apos;s payment.
                     </p>
-                  )}
+                  </div>
                 </div>
               )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Spares Counter Sales Description ────────────────────────────────── */}
+      {isSpares && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Spares Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="spares_description">Item / Part Description</Label>
+              <Input
+                id="spares_description"
+                placeholder="e.g. Oil Filter, Brake Pads, Clutch Kit…"
+                value={vehicleModel}
+                onChange={(e) => setVehicleModel(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter part name or brief description of spares sold at counter.
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -808,15 +864,40 @@ export function SalesReceiptForm({
             )}
           </div>
 
-          {/* Grand total display */}
+          {/* Grand total + customer amount display */}
           {base > 0 && (
             <>
               <Separator />
-              <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3">
-                <span className="text-sm font-medium">Grand Total</span>
-                <span className="text-xl font-bold tabular-nums">
-                  {formatINR(grandTotal)}
-                </span>
+              <div className="rounded-lg bg-muted px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Grand Total</span>
+                  <span className="text-xl font-bold tabular-nums">
+                    {formatINR(grandTotal)}
+                  </span>
+                </div>
+                {(finAmt > 0 || insAmt > 0) && (
+                  <>
+                    {finAmt > 0 && (
+                      <div className="flex items-center justify-between text-sm text-blue-700">
+                        <span>— Finance Co. Pays</span>
+                        <span className="tabular-nums">({formatINR(finAmt)})</span>
+                      </div>
+                    )}
+                    {insAmt > 0 && (
+                      <div className="flex items-center justify-between text-sm text-emerald-700">
+                        <span>— Insurance Co. Owes</span>
+                        <span className="tabular-nums">({formatINR(insAmt)})</span>
+                      </div>
+                    )}
+                    <Separator />
+                    <div className="flex items-center justify-between font-semibold">
+                      <span className="text-sm">Customer Pays</span>
+                      <span className="text-lg tabular-nums text-orange-700">
+                        {formatINR(customerAmount)}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </>
           )}
@@ -852,7 +933,7 @@ export function SalesReceiptForm({
               </Select>
             </div>
 
-            {paymentMode && paymentMode !== "cash" && (
+            {paymentMode && paymentMode !== "cash" && paymentMode !== "credit" && (
               <div className="space-y-1.5">
                 <Label htmlFor="payment_ref">
                   {paymentMode === "cheque"
@@ -870,6 +951,12 @@ export function SalesReceiptForm({
                   onChange={(e) => setPaymentReference(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">Required for non-cash payments.</p>
+              </div>
+            )}
+
+            {paymentMode === "credit" && (
+              <div className="col-span-2 rounded-md border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950 px-3 py-2 text-sm text-blue-800 dark:text-blue-200">
+                ℹ Credit sale — no cash collected now. This will appear in the Credit Transactions report for later settlement.
               </div>
             )}
           </div>
@@ -937,7 +1024,7 @@ export function SalesReceiptForm({
         )}
         {isPending
           ? "Creating Sales Receipt…"
-          : `Create Sales Receipt${grandTotal > 0 ? ` — ${formatINR(grandTotal)}` : ""}`}
+          : `Create Sales Receipt${grandTotal > 0 ? ` — ${formatINR(customerAmount > 0 && (finAmt > 0 || insAmt > 0) ? customerAmount : grandTotal)} collected` : ""}`}
       </Button>
     </form>
   );

@@ -114,24 +114,24 @@ export function DeliveryChallanSection({
     markVehicleChallanIssued(invoice.id).catch(() => {
       // Vehicle may not be in the register — that's fine, silently ignore
     });
-    toast.success(`Delivery Challan ${result.challan_number} issued`);
+    toast.success(`Gate Pass ${result.challan_number} issued`);
     router.refresh();
   };
 
-  // Already issued — show challan summary + print button
+  // Already issued — show gate pass summary + print button
   if (localChallan) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-green-600" />
-            Delivery Challan
+            Gate Pass
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <p className="text-muted-foreground">Challan No.</p>
+              <p className="text-muted-foreground">Gate Pass No.</p>
               <p className="font-mono font-semibold">
                 {localChallan.challan_number}
               </p>
@@ -168,22 +168,22 @@ export function DeliveryChallanSection({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Delivery Challan
+            Gate Pass
           </CardTitle>
         </CardHeader>
         <CardContent>
           {invoice.is_cancelled ? (
             <p className="text-sm text-muted-foreground">
-              Cannot issue a delivery challan for a cancelled invoice.
+              Cannot issue a gate pass for a cancelled invoice.
             </p>
           ) : !canIssue ? (
             <p className="text-sm text-muted-foreground">
-              You do not have permission to issue delivery challans.
+              You do not have permission to issue gate passes.
             </p>
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                No delivery challan issued yet. Issue a challan to authorise
+                No gate pass issued yet. Issue a gate pass to authorise
                 physical delivery of goods.
               </p>
               <Button
@@ -198,7 +198,7 @@ export function DeliveryChallanSection({
                 ) : (
                   <>
                     <ShieldCheck className="mr-2 h-4 w-4" />
-                    Issue Delivery Challan
+                    Issue Gate Pass
                   </>
                 )}
               </Button>
@@ -214,10 +214,10 @@ export function DeliveryChallanSection({
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Issue Delivery Challan</DialogTitle>
+            <DialogTitle>Issue Gate Pass</DialogTitle>
             <DialogDescription>
               Confirm the delivery address, then click Generate to issue the
-              challan.
+              gate pass.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-2">
@@ -245,7 +245,7 @@ export function DeliveryChallanSection({
                 ) : (
                   <>
                     <ShieldCheck className="mr-2 h-4 w-4" />
-                    Generate Delivery Challan
+                    Generate Gate Pass
                   </>
                 )}
               </Button>

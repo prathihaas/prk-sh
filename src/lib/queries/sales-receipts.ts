@@ -81,23 +81,6 @@ export async function createSalesReceipt(
   if (!values.branch_id) return { error: "No branch selected. Please select a branch in the header." };
   if (!values.financial_year_id) return { error: "No active financial year found. Please configure a financial year." };
 
-  // ── Cash limit check (Section 269ST) ────────────────────────────────────
-  if (validated.payment_mode === "cash" && values.financial_year_id) {
-    const limits = await getCashLimits(values.company_id);
-    let existingCash = 0;
-    if (validated.customer_id) {
-      existingCash = await getCashReceivedFromCustomer(values.company_id, validated.customer_id, values.financial_year_id);
-    }
-    const newTotal = existingCash + validated.base_amount;
-    if (newTotal > limits.customer_cash_per_fy) {
-      const fmt = (n: number) =>
-        new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
-      return {
-        error: `Cash limit exceeded (Section 269ST): Total cash from this customer this financial year would reach ${fmt(newTotal)}, exceeding the limit of ${fmt(limits.customer_cash_per_fy)}. Please use a non-cash payment mode.`,
-      };
-    }
-  }
-
   // ── Calculate amounts ────────────────────────────────────────────────────
   const cgst = validated.tax_cgst || 0;
   const sgst = validated.tax_sgst || 0;
@@ -106,6 +89,28 @@ export async function createSalesReceipt(
   const taxTotal = cgst + sgst + igst + tcs;
   const discount = validated.discount_amount || 0;
   const grandTotal = validated.base_amount - discount + taxTotal;
+
+  // Amount customer actually pays (net of finance / insurance deductions)
+  const financeAmt = validated.finance_due ? (validated.finance_amount || 0) : 0;
+  const insuranceAmt = validated.insurance_due ? (validated.insurance_amount || 0) : 0;
+  const customerAmount = grandTotal - financeAmt - insuranceAmt;
+
+  // ── Cash limit check (Section 269ST) — only for cash payment on customer portion ──
+  if (validated.payment_mode === "cash" && values.financial_year_id) {
+    const limits = await getCashLimits(values.company_id);
+    let existingCash = 0;
+    if (validated.customer_id) {
+      existingCash = await getCashReceivedFromCustomer(values.company_id, validated.customer_id, values.financial_year_id);
+    }
+    const newTotal = existingCash + customerAmount;
+    if (newTotal > limits.customer_cash_per_fy) {
+      const fmt = (n: number) =>
+        new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+      return {
+        error: `Cash limit exceeded (Section 269ST): Total cash from this customer this financial year would reach ${fmt(newTotal)}, exceeding the limit of ${fmt(limits.customer_cash_per_fy)}. Please use a non-cash payment mode.`,
+      };
+    }
+  }
 
   const amountField: Record<string, number> = {};
   switch (validated.invoice_type) {
@@ -125,11 +130,14 @@ export async function createSalesReceipt(
     validated.insurance_due && validated.insurance_company
       ? `Insurance: ${validated.insurance_company}`
       : null,
+    validated.insurance_due && insuranceAmt > 0
+      ? `Insurance Amt: ₹${insuranceAmt.toLocaleString("en-IN")}`
+      : null,
     validated.finance_due && validated.finance_company
       ? `Finance: ${validated.finance_company}`
       : null,
-    validated.finance_due && validated.finance_amount
-      ? `Finance Amt: ₹${validated.finance_amount.toLocaleString("en-IN")}`
+    validated.finance_due && financeAmt > 0
+      ? `Finance Amt: ₹${financeAmt.toLocaleString("en-IN")}`
       : null,
   ].filter((s): s is string => Boolean(s));
 
@@ -163,10 +171,12 @@ export async function createSalesReceipt(
 
   if (invError) return { error: invError.message };
 
-  // ── For cash payment: post to the selected cashbook (mandatory — block if no open day) ──
+  // ── For cash payment: post to the selected cashbook (customer amount only) ──
   let cashbookTxnId: string | null = null;
   const cashbookId = validated.cashbook_id || null;
-  if (validated.payment_mode === "cash" && cashbookId) {
+
+  // Credit mode: skip cashbook posting entirely
+  if (validated.payment_mode !== "credit" && validated.payment_mode === "cash" && cashbookId) {
     const { data: day } = await supabase
       .from("cashbook_days")
       .select("id")
@@ -202,7 +212,7 @@ export async function createSalesReceipt(
         branch_id: values.branch_id,
         financial_year_id: values.financial_year_id || null,
         txn_type: "receipt",
-        amount: grandTotal,
+        amount: customerAmount,
         payment_mode: "cash",
         narration,
         party_name: validated.customer_name,
@@ -222,13 +232,13 @@ export async function createSalesReceipt(
     cashbookTxnId = txn.id;
   }
 
-  // ── Record full payment immediately ─────────────────────────────────────
+  // ── Record payment — customer amount for the payment mode ────────────────
   const paymentRow: Record<string, unknown> = {
     invoice_id: invoice.id,
     company_id: values.company_id,
     branch_id: values.branch_id,
     payment_mode: validated.payment_mode,
-    amount: grandTotal,
+    amount: validated.payment_mode === "credit" ? grandTotal : customerAmount,
     reference_number: validated.payment_reference || null,
     payment_date: validated.invoice_date,
     created_by: values.created_by,
@@ -253,8 +263,49 @@ export async function createSalesReceipt(
     return { error: payError.message };
   }
 
+  // ── Create company_dues entries for finance / insurance ──────────────────
+  const dueInserts: Record<string, unknown>[] = [];
+
+  if (validated.finance_due && validated.finance_company && financeAmt > 0) {
+    dueInserts.push({
+      company_id: values.company_id,
+      branch_id: values.branch_id,
+      financial_year_id: values.financial_year_id || null,
+      due_type: "finance",
+      company_name: validated.finance_company,
+      total_amount: financeAmt,
+      invoice_id: invoice.id,
+      created_by: values.created_by,
+    });
+  }
+
+  if (validated.insurance_due && validated.insurance_company && insuranceAmt > 0) {
+    dueInserts.push({
+      company_id: values.company_id,
+      branch_id: values.branch_id,
+      financial_year_id: values.financial_year_id || null,
+      due_type: "insurance",
+      company_name: validated.insurance_company,
+      total_amount: insuranceAmt,
+      invoice_id: invoice.id,
+      created_by: values.created_by,
+    });
+  }
+
+  if (dueInserts.length > 0) {
+    const { error: dueError } = await supabase
+      .from("company_dues")
+      .insert(dueInserts);
+
+    if (dueError) {
+      // Non-fatal: log but don't rollback the invoice/payment — dues can be added manually
+      console.error("Failed to create company_dues entries:", dueError.message);
+    }
+  }
+
   revalidatePath("/sales/sales-receipts");
   revalidatePath("/invoices");
+  revalidatePath("/reports/company-dues");
   if (cashbookId) revalidatePath("/cash/cashbooks");
   return {
     success: true,

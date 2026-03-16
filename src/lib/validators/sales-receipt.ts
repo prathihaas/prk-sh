@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const salesReceiptSchema = z.object({
   invoice_type: z.enum(
-    ["automobile_sale", "tractor_agri_sale", "service", "other_income"],
+    ["automobile_sale", "tractor_agri_sale", "service", "spares_counter_sale", "other_income"],
     { error: "Select invoice type" }
   ),
   customer_id: z.string().uuid().optional().or(z.literal("")),
@@ -28,7 +28,7 @@ export const salesReceiptSchema = z.object({
 
   // Payment (full payment at time of sale)
   payment_mode: z.enum(
-    ["cash", "cheque", "upi", "bank_transfer", "card", "finance"],
+    ["cash", "cheque", "upi", "bank_transfer", "card", "finance", "credit"],
     { error: "Select payment mode" }
   ),
   payment_reference: z.string().max(200).optional().or(z.literal("")),
@@ -44,6 +44,9 @@ export const salesReceiptSchema = z.object({
   finance_due: z.boolean().optional(),
   finance_company: z.string().max(200).optional().or(z.literal("")),
   finance_amount: z.number().min(0).optional(),
+
+  // Insurance amount (deducted from customer's payment; insurance company owes dealer)
+  insurance_amount: z.number().min(0).optional(),
 
   notes: z.string().max(1000).optional().or(z.literal("")),
 });

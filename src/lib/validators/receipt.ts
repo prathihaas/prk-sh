@@ -10,7 +10,7 @@ export const receiptSchema = z.object({
     .number({ error: "Must be a number" })
     .positive("Amount must be greater than zero"),
   payment_mode: z.enum(
-    ["cash", "cheque", "upi", "bank_transfer", "card", "finance"],
+    ["cash", "cheque", "upi", "bank_transfer", "card", "finance", "credit"],
     { error: "Select payment mode" }
   ),
   narration: z.string().min(1, "Narration is required").max(1000),

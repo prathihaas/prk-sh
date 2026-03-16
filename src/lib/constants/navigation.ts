@@ -29,6 +29,8 @@ import {
   QrCode,
   Car,
   ReceiptText,
+  CreditCard,
+  Building,
 } from "lucide-react";
 import { PERMISSIONS } from "./permissions";
 import type { NavSection } from "@/types/navigation";
@@ -231,6 +233,18 @@ export const navigationItems: NavSection[] = [
         title: "Reports",
         href: "/reports",
         icon: BarChart3,
+        permission: PERMISSIONS.REPORTING_BRANCH,
+      },
+      {
+        title: "Credit Transactions",
+        href: "/reports/credit-transactions",
+        icon: CreditCard,
+        permission: PERMISSIONS.REPORTING_BRANCH,
+      },
+      {
+        title: "Company Dues",
+        href: "/reports/company-dues",
+        icon: Building,
         permission: PERMISSIONS.REPORTING_BRANCH,
       },
     ],
