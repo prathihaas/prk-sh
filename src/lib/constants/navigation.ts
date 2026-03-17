@@ -150,6 +150,12 @@ export const navigationItems: NavSection[] = [
         permission: PERMISSIONS.VEHICLE_REGISTER_VIEW,
       },
       {
+        title: "Vehicle Reports",
+        href: "/sales/vehicle-register/reports",
+        icon: BarChart3,
+        permission: PERMISSIONS.VEHICLE_REGISTER_VIEW,
+      },
+      {
         title: "Customers",
         href: "/sales/customers",
         icon: UserRound,

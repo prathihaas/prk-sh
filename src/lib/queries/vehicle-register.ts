@@ -16,6 +16,39 @@ export interface CreateVehicleValues {
   created_by: string;
 }
 
+/** Full-detail query for reports — includes all timestamp columns */
+export async function getVehiclesForReport(
+  companyId: string,
+  options?: {
+    branchId?: string | null;
+    shopType?: ShopType | null;
+    fromDate?: string | null;
+    toDate?: string | null;
+  }
+) {
+  const supabase = await createClient();
+  let query = supabase
+    .from("vehicle_register")
+    .select(`
+      id, model, registration_number, customer_name, shop_type, status, ro_number,
+      is_insurance_claim,
+      arrived_at, ro_opened_at, insurance_approved_at,
+      work_started_at, work_done_at, ready_at,
+      gate_pass_issued_at, delivered_at
+    `)
+    .eq("company_id", companyId)
+    .order("arrived_at", { ascending: false });
+
+  if (options?.branchId) query = query.eq("branch_id", options.branchId);
+  if (options?.shopType) query = query.eq("shop_type", options.shopType);
+  if (options?.fromDate) query = query.gte("arrived_at", options.fromDate);
+  if (options?.toDate) query = query.lte("arrived_at", `${options.toDate}T23:59:59.999Z`);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
 export async function getVehicles(
   companyId: string,
   branchId?: string | null,

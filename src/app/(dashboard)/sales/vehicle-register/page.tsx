@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Car, Eye, Clock, Wrench, Paintbrush, ShieldCheck } from "lucide-react";
+import { VehicleQuickAction, type VehicleForAction } from "./vehicle-quick-action";
 
 function VehicleStatusBadge({ status }: { status: string }) {
   const cfg: Record<string, string> = {
@@ -47,7 +48,13 @@ function daysSince(date: string) {
   return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
 
-function VehicleList({ items }: { items: Record<string, unknown>[] }) {
+function VehicleList({
+  items,
+  canManage,
+}: {
+  items: Record<string, unknown>[];
+  canManage: boolean;
+}) {
   if (items.length === 0) {
     return (
       <div className="text-center py-10 text-muted-foreground">
@@ -66,11 +73,12 @@ function VehicleList({ items }: { items: Record<string, unknown>[] }) {
         return (
           <div
             key={String(v.id)}
-            className="flex items-center justify-between py-3 px-1 gap-4 hover:bg-muted/30 rounded transition-colors"
+            className="flex items-center justify-between py-3 px-1 gap-3 hover:bg-muted/30 rounded transition-colors"
           >
+            {/* Left: vehicle identity */}
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
-                <Car className="h-4 w-4 text-muted-foreground" />
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                <Car className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
               <div className="min-w-0">
                 <p className="font-medium text-sm flex items-center gap-1.5 flex-wrap">
@@ -85,25 +93,39 @@ function VehicleList({ items }: { items: Record<string, unknown>[] }) {
                   ) : null}
                 </p>
                 {v.customer_name ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground truncate">
                     {String(v.customer_name)}
                   </p>
                 ) : null}
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 shrink-0">
+            {/* Right: days overdue + status + quick action + view */}
+            <div className="flex items-center gap-2 shrink-0">
               {days > 7 && isActive && (
-                <Badge
-                  variant="destructive"
-                  className="text-xs gap-1 hidden sm:flex"
-                >
+                <Badge variant="destructive" className="text-xs gap-1 hidden md:flex">
                   <Clock className="h-3 w-3" />
                   {days}d
                 </Badge>
               )}
-              <VehicleStatusBadge status={String(v.status)} />
-              <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+              {/* Status badge — hidden on small screens to save space for the action button */}
+              <span className="hidden sm:block">
+                <VehicleStatusBadge status={String(v.status)} />
+              </span>
+
+              {/* Inline quick-action — most important UX element */}
+              {canManage && (
+                <VehicleQuickAction
+                  vehicle={{
+                    id: String(v.id),
+                    status: String(v.status),
+                    shop_type: v.shop_type as string | null,
+                  } as VehicleForAction}
+                />
+              )}
+
+              {/* Always-visible view link */}
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" asChild>
                 <Link href={`/sales/vehicle-register/${v.id}`}>
                   <Eye className="h-4 w-4" />
                 </Link>
@@ -254,11 +276,11 @@ function ShopView({
 
         {grouped.map((g) => (
           <TabsContent key={g.key} value={g.key} className="mt-4">
-            <VehicleList items={g.items} />
+            <VehicleList items={g.items} canManage={canManage} />
           </TabsContent>
         ))}
         <TabsContent value="all" className="mt-4">
-          <VehicleList items={vehicles} />
+          <VehicleList items={vehicles} canManage={canManage} />
         </TabsContent>
       </Tabs>
     </div>
