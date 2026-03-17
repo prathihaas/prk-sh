@@ -30,9 +30,8 @@ import {
 import {
   updateVehicleStatus,
   markVehicleDelivered,
-  type VehicleStatus,
-  type ShopType,
 } from "@/lib/queries/vehicle-register";
+import type { VehicleStatus, ShopType } from "@/lib/constants/vehicle-register";
 
 interface VehicleActionsProps {
   vehicle: Record<string, unknown>;

@@ -4,9 +4,6 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { VehicleStatus, ShopType } from "@/lib/constants/vehicle-register";
 
-// Re-export types so callers can import from one place (queries file)
-export type { VehicleStatus, ShopType };
-
 export interface CreateVehicleValues {
   company_id: string;
   branch_id: string;

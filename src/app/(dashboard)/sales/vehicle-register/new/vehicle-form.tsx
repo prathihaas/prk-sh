@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { createVehicle, type ShopType } from "@/lib/queries/vehicle-register";
+import { createVehicle } from "@/lib/queries/vehicle-register";
+import type { ShopType } from "@/lib/constants/vehicle-register";
 
 interface VehicleFormProps {
   userId: string;
