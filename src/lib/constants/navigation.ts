@@ -31,6 +31,8 @@ import {
   ReceiptText,
   CreditCard,
   Building,
+  FileCode2,
+  Settings2,
 } from "lucide-react";
 import { PERMISSIONS } from "./permissions";
 import type { NavSection } from "@/types/navigation";
@@ -253,6 +255,12 @@ export const navigationItems: NavSection[] = [
         icon: Building,
         permission: PERMISSIONS.REPORTING_BRANCH,
       },
+      {
+        title: "Tally Export",
+        href: "/reports/tally-export",
+        icon: FileCode2,
+        permission: PERMISSIONS.REPORTING_BRANCH,
+      },
     ],
   },
   {
@@ -302,6 +310,12 @@ export const navigationItems: NavSection[] = [
         title: "API & Webhooks",
         href: "/settings/api-webhooks",
         icon: Webhook,
+        permission: PERMISSIONS.ADMIN_MANAGE_COMPANIES,
+      },
+      {
+        title: "Tally Prime",
+        href: "/settings/tally",
+        icon: Settings2,
         permission: PERMISSIONS.ADMIN_MANAGE_COMPANIES,
       },
     ],
