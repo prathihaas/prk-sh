@@ -76,10 +76,10 @@ export default async function TallyExportPage({
   const toDate = params.to || today;
 
   const [settings, history, txns, transfers] = await Promise.all([
-    getTallySettings(companyId),
-    getTallyExportHistory(companyId),
-    getTxnsForExport(companyId, fromDate, toDate),
-    getTransfersForExport(companyId, fromDate, toDate),
+    getTallySettings(companyId).catch(() => ({ company_name: "", default_income_ledger: "Sales", default_expense_ledger: "Indirect Expenses", cashbook_ledger_map: {} as Record<string, string>, expense_category_ledger_map: {} as Record<string, string> })),
+    getTallyExportHistory(companyId).catch(() => [] as TallyExportBatch[]),
+    getTxnsForExport(companyId, fromDate, toDate).catch(() => []),
+    getTransfersForExport(companyId, fromDate, toDate).catch(() => []),
   ]);
 
   const isConfigured = !!settings.company_name;

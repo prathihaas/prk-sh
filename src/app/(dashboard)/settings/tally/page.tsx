@@ -43,9 +43,9 @@ export default async function TallySettingsPage() {
   }
 
   const [cashbooks, categories, settings] = await Promise.all([
-    getCashbooksForMapping(companyId),
-    getExpenseCategoriesForMapping(companyId),
-    getTallySettings(companyId),
+    getCashbooksForMapping(companyId).catch(() => []),
+    getExpenseCategoriesForMapping(companyId).catch(() => []),
+    getTallySettings(companyId).catch(() => ({ company_name: "", default_income_ledger: "Sales", default_expense_ledger: "Indirect Expenses", cashbook_ledger_map: {} as Record<string, string>, expense_category_ledger_map: {} as Record<string, string> })),
   ]);
 
   return (
