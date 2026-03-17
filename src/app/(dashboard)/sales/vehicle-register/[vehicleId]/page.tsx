@@ -6,10 +6,12 @@ import { PERMISSIONS } from "@/lib/constants/permissions";
 import {
   getVehicle,
   getVehicleComments,
+} from "@/lib/queries/vehicle-register";
+import {
   STATUS_LABELS,
   type VehicleStatus,
   type ShopType,
-} from "@/lib/queries/vehicle-register";
+} from "@/lib/constants/vehicle-register";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

@@ -4,12 +4,12 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPermissions } from "@/lib/auth/helpers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
+import { getVehicles } from "@/lib/queries/vehicle-register";
 import {
-  getVehicles,
   STATUS_LABELS,
   type VehicleStatus,
   type ShopType,
-} from "@/lib/queries/vehicle-register";
+} from "@/lib/constants/vehicle-register";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
