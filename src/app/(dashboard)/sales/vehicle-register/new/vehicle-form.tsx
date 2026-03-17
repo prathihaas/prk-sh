@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useTransition, useRef, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Save, Wrench, Paintbrush } from "lucide-react";
+import { Loader2, Save, Wrench, Paintbrush, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,13 +22,26 @@ interface VehicleFormProps {
 
 export function VehicleForm({ userId, companyId, branchId, financialYearId }: VehicleFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isGateMode = searchParams.get("gate") === "true";
   const [isPending, startTransition] = useTransition();
+  const modelRef = useRef<HTMLInputElement>(null);
 
   const [shopType, setShopType] = useState<ShopType>("workshop");
   const [model, setModel] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [notes, setNotes] = useState("");
+  const [lastAdded, setLastAdded] = useState<{ model: string; reg: string } | null>(null);
+
+  const resetForm = useCallback(() => {
+    setModel("");
+    setRegistrationNumber("");
+    setCustomerName("");
+    setNotes("");
+    // keep shopType — security guard usually registers same shop type in a row
+    setTimeout(() => modelRef.current?.focus(), 50);
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -36,14 +49,17 @@ export function VehicleForm({ userId, companyId, branchId, financialYearId }: Ve
     if (!registrationNumber.trim()) { toast.error("Vehicle number is required."); return; }
     if (!companyId || !branchId) { toast.error("Company and branch scope must be set."); return; }
 
+    const submittedModel = model.trim();
+    const submittedReg = registrationNumber.trim().toUpperCase();
+
     startTransition(async () => {
       const result = await createVehicle({
         company_id: companyId,
         branch_id: branchId,
         financial_year_id: financialYearId || undefined,
         shop_type: shopType,
-        model: model.trim(),
-        registration_number: registrationNumber.trim().toUpperCase(),
+        model: submittedModel,
+        registration_number: submittedReg,
         customer_name: customerName.trim() || undefined,
         notes: notes.trim() || undefined,
         created_by: userId,
@@ -51,6 +67,11 @@ export function VehicleForm({ userId, companyId, branchId, financialYearId }: Ve
 
       if (result.error) {
         toast.error(result.error);
+      } else if (isGateMode) {
+        // Gate mode: reset form and stay for next vehicle
+        setLastAdded({ model: submittedModel, reg: submittedReg });
+        resetForm();
+        toast.success(`✓ ${submittedModel} (${submittedReg}) registered`);
       } else {
         toast.success("Vehicle added to register successfully.");
         router.push(`/sales/vehicle-register/${result.id}`);
@@ -60,6 +81,18 @@ export function VehicleForm({ userId, companyId, branchId, financialYearId }: Ve
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Gate mode: last registered confirmation banner */}
+      {isGateMode && lastAdded && (
+        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950 px-4 py-3 text-sm text-green-800 dark:text-green-200">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>
+            Last registered: <strong>{lastAdded.model}</strong>{" "}
+            <span className="font-mono bg-green-100 dark:bg-green-900 px-1.5 py-0.5 rounded text-xs">
+              {lastAdded.reg}
+            </span>
+          </span>
+        </div>
+      )}
       <Card>
         <CardHeader>
           <CardTitle>Which shop is this vehicle going to?</CardTitle>
@@ -114,6 +147,7 @@ export function VehicleForm({ userId, companyId, branchId, financialYearId }: Ve
               Vehicle Model <span className="text-destructive">*</span>
             </Label>
             <Input
+              ref={modelRef}
               id="model"
               placeholder="e.g. Swift, Bolero, Activa"
               value={model}
@@ -159,13 +193,15 @@ export function VehicleForm({ userId, companyId, branchId, financialYearId }: Ve
         </CardContent>
       </Card>
 
-      <Button type="submit" disabled={isPending} className="w-full">
+      <Button type="submit" disabled={isPending} className="w-full" size={isGateMode ? "lg" : "default"}>
         {isPending ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <Save className="mr-2 h-4 w-4" />
         )}
-        Add to {shopType === "workshop" ? "Workshop" : "Bodyshop"} Register
+        {isGateMode
+          ? `Register Vehicle → ${shopType === "workshop" ? "Workshop" : "Bodyshop"}`
+          : `Add to ${shopType === "workshop" ? "Workshop" : "Bodyshop"} Register`}
       </Button>
     </form>
   );
