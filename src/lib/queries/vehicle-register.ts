@@ -16,6 +16,25 @@ export interface CreateVehicleValues {
   created_by: string;
 }
 
+export interface VehicleReportRow {
+  id: string;
+  model: string;
+  registration_number: string;
+  customer_name: string | null;
+  shop_type: string;
+  status: string;
+  ro_number: string | null;
+  is_insurance_claim: boolean;
+  arrived_at: string | null;
+  ro_opened_at: string | null;
+  insurance_approved_at: string | null;
+  work_started_at: string | null;
+  work_done_at: string | null;
+  ready_at: string | null;
+  gate_pass_issued_at: string | null;
+  delivered_at: string | null;
+}
+
 /** Full-detail query for reports — includes all timestamp columns */
 export async function getVehiclesForReport(
   companyId: string,
@@ -25,7 +44,7 @@ export async function getVehiclesForReport(
     fromDate?: string | null;
     toDate?: string | null;
   }
-) {
+): Promise<VehicleReportRow[]> {
   const supabase = await createClient();
   let query = supabase
     .from("vehicle_register")

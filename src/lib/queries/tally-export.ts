@@ -87,11 +87,27 @@ export async function getTxnsForExport(
 
   if (branchId) query = query.eq("branch_id", branchId);
 
-  const { data, error } = await query;
+  const { data: rawData, error } = await query;
   if (error) throw error;
 
+  type RawTxnRow = {
+    id: string;
+    txn_type: string;
+    amount: number;
+    cashbook_id: string;
+    narration: string;
+    party_name: string | null;
+    receipt_number: string;
+    payment_mode: string;
+    created_at: string;
+    reference_type: string | null;
+    reference_id: string | null;
+    cashbook: { id: string; name: string; type: string } | null;
+  };
+  const data = (rawData || []) as RawTxnRow[];
+
   // Resolve expense category names for expense-linked payments
-  const expenseIds = (data || [])
+  const expenseIds = data
     .filter((t) => t.reference_type === "expense" && t.reference_id)
     .map((t) => t.reference_id as string);
 
@@ -103,14 +119,14 @@ export async function getTxnsForExport(
       .select("id, category_id, category:expense_categories(id, name)")
       .in("id", expenseIds);
 
-    for (const exp of expenses || []) {
-      const cat = exp.category as { id: string; name: string } | null;
+    for (const exp of (expenses || []) as Array<{ id: string; category_id: string | null; category: { id: string; name: string } | null }>) {
+      const cat = exp.category;
       if (cat) categoryByExpenseId[exp.id] = cat;
     }
   }
 
-  return (data || []).map((t) => {
-    const cb = t.cashbook as { id: string; name: string; type: string } | null;
+  return data.map((t) => {
+    const cb = t.cashbook;
     const expCat =
       t.reference_type === "expense" && t.reference_id
         ? categoryByExpenseId[t.reference_id]
@@ -162,12 +178,24 @@ export async function getTransfersForExport(
 
   if (branchId) query = query.eq("branch_id", branchId);
 
-  const { data, error } = await query;
+  const { data: rawData, error } = await query;
   if (error) throw error;
 
-  return (data || []).map((tr) => {
-    const fromCb = tr.from_cb as { id: string; name: string } | null;
-    const toCb = tr.to_cb as { id: string; name: string } | null;
+  type RawTransferRow = {
+    id: string;
+    amount: number;
+    from_cashbook_id: string;
+    to_cashbook_id: string;
+    description: string | null;
+    transfer_date: string;
+    from_cb: { id: string; name: string } | null;
+    to_cb: { id: string; name: string } | null;
+  };
+  const data = (rawData || []) as RawTransferRow[];
+
+  return data.map((tr) => {
+    const fromCb = tr.from_cb;
+    const toCb = tr.to_cb;
     return {
       id: tr.id,
       amount: tr.amount,
@@ -183,7 +211,18 @@ export async function getTransfersForExport(
 
 // ── Export history ─────────────────────────────────────────────
 
-export async function getTallyExportHistory(companyId: string, limit = 20) {
+export interface TallyExportBatch {
+  id: string;
+  from_date: string;
+  to_date: string;
+  voucher_count: number;
+  exported_at: string;
+  filename: string | null;
+  notes: string | null;
+  exporter: { full_name: string } | null;
+}
+
+export async function getTallyExportHistory(companyId: string, limit = 20): Promise<TallyExportBatch[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("tally_export_batches")
@@ -201,7 +240,7 @@ export async function getTallyExportHistory(companyId: string, limit = 20) {
     .order("exported_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return data || [];
+  return (data || []) as TallyExportBatch[];
 }
 
 export async function logTallyExport(payload: {

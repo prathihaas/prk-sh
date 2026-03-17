@@ -22,6 +22,7 @@ import {
   getTallyExportHistory,
   getTxnsForExport,
   getTransfersForExport,
+  type TallyExportBatch,
 } from "@/lib/queries/tally-export";
 import { PageHeader } from "@/components/shared/page-header";
 import {
@@ -273,8 +274,8 @@ export default async function TallyExportPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {history.map((batch) => {
-                    const exporter = batch.exporter as { full_name: string } | null;
+                  {history.map((batch: TallyExportBatch) => {
+                    const exporter = batch.exporter;
                     return (
                       <TableRow key={batch.id}>
                         <TableCell className="font-mono text-xs">

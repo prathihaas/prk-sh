@@ -71,7 +71,6 @@ function getAlternatives(status: VehicleStatus, shopType: ShopType): TransitionD
     }
     return alts;
   }
-  if (status === "ro_opened") return [];
   if (status === "parts_received") {
     return [{ to: "waiting_for_parts", label: "Back to Waiting", Icon: Package }];
   }
