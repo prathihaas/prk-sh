@@ -296,29 +296,14 @@ export function PrintExpenseVoucher({
         <div className="px-6 py-8">
           <div className="flex justify-between items-end">
             <div className="text-center">
-              <div className="w-36 border-b border-gray-800 mb-1" />
-              <p className="text-xs font-medium">Prepared By</p>
-              {expense.submitter?.full_name && (
-                <p className="text-xs text-gray-600">{expense.submitter.full_name}</p>
-              )}
+              <div className="w-40 h-16" />
+              <div className="w-40 border-b border-gray-800 mb-1" />
+              <p className="text-xs font-medium">Receiver&apos;s Sign</p>
             </div>
             <div className="text-center">
-              <div className="w-36 border-b border-gray-800 mb-1" />
-              <p className="text-xs font-medium">Checked By</p>
-              {expense.accounts_approver?.full_name ? (
-                <p className="text-xs text-gray-600">{expense.accounts_approver.full_name}</p>
-              ) : (
-                <p className="text-xs text-gray-400">(Accounts Dept.)</p>
-              )}
-            </div>
-            <div className="text-center">
-              <div className="w-36 border-b border-gray-800 mb-1" />
-              <p className="text-xs font-medium">Authorised By</p>
-              {expense.owner_approver?.full_name ? (
-                <p className="text-xs text-gray-600">{expense.owner_approver.full_name}</p>
-              ) : (
-                <p className="text-xs text-gray-400">(Management)</p>
-              )}
+              <div className="w-40 h-16" />
+              <div className="w-40 border-b border-gray-800 mb-1" />
+              <p className="text-xs font-medium">Giver&apos;s Sign &amp; Stamp</p>
             </div>
           </div>
         </div>
