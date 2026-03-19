@@ -19,7 +19,7 @@ export async function getReceipts(
     .select(`
       *,
       creator:user_profiles!cashbook_transactions_created_by_fkey(id, full_name, email),
-      cashbook:cashbooks(id, name)
+      cashbook:cashbooks!cashbook_transactions_cashbook_id_fkey(id, name)
     `)
     .eq("txn_type", "receipt")
     .eq("company_id", companyId)

@@ -53,7 +53,9 @@ export default async function CashbookDayDetailPage({
     companyId
       ? getAuditLogs(companyId, { table_name: "cashbook_transactions", from_date: day.date, to_date: day.date })
       : Promise.resolve([]),
-    companyId ? getDenominationSetting(companyId) : Promise.resolve(false),
+    companyId
+      ? getDenominationSetting(companyId, cashbook.branch_id ?? null, cashbookId)
+      : Promise.resolve(false),
   ]);
 
   const dateFormatted = new Date(day.date).toLocaleDateString("en-IN", {
