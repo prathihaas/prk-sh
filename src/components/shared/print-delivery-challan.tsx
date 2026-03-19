@@ -108,9 +108,10 @@ export function PrintDeliveryChallan({ invoice, company, branch }: PrintDelivery
           <h1 className="text-xl font-bold tracking-widest mb-1">GATE PASS</h1>
           {company && <h2 className="text-lg font-semibold">{company.name}</h2>}
           {branch && (
-            <p className="text-sm">
-              {branch.name}{branch.address ? ` \u2022 ${branch.address}` : ""}
-            </p>
+            <p className="text-sm font-medium">Branch: {branch.name}</p>
+          )}
+          {branch?.address && (
+            <p className="text-xs text-gray-600">{branch.address}</p>
           )}
           {branch?.phone && <p className="text-xs text-gray-600">Tel: {branch.phone}</p>}
           {company?.gstin && (

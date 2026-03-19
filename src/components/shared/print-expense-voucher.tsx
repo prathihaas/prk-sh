@@ -36,7 +36,7 @@ interface PrintExpenseVoucherProps {
     name: string;
     gstin?: string | null;
     address?: string | null;
-    pan_number?: string | null;
+    pan?: string | null;
     logo_url?: string | null;
   } | null;
   branch: {
@@ -144,17 +144,19 @@ export function PrintExpenseVoucher({
           <h1 className="text-xl font-bold tracking-widest mb-1">PAYMENT VOUCHER</h1>
           {company && <h2 className="text-lg font-semibold">{company.name}</h2>}
           {branch && (
-            <p className="text-sm">
-              {branch.name}
-              {branch.address ? ` \u2022 ${branch.address}` : ""}
+            <p className="text-sm font-medium">
+              Branch: {branch.name}
             </p>
+          )}
+          {branch?.address && (
+            <p className="text-xs text-gray-600">{branch.address}</p>
           )}
           {branch?.phone && (
             <p className="text-xs text-gray-600">Tel: {branch.phone}</p>
           )}
           <div className="flex justify-center gap-6 mt-1 text-xs text-gray-600">
             {company?.gstin && <span>GSTIN: {company.gstin}</span>}
-            {company?.pan_number && <span>PAN: {company.pan_number}</span>}
+            {company?.pan && <span>PAN: {company.pan}</span>}
           </div>
         </div>
 
