@@ -110,7 +110,10 @@ export async function completePendingRoJob(
     .eq("id", id);
 
   if (error) return { error: error.message };
-  revalidatePath("/sales/pending-ro");
+  // No revalidatePath here — caller always navigates away to /invoices/:id
+  // so revalidating this page while the user is on it would cause an
+  // unwanted page re-render that resets state and aborts the navigation.
+  // The page is dynamic (uses cookies), so it fetches fresh data on next visit.
   return { success: true };
 }
 
