@@ -135,46 +135,54 @@ function CompleteRoDialog({
     }
 
     startTransition(async () => {
-      // Step 1: Create sales receipt
-      const receiptResult = await createSalesReceipt({
-        invoice_type: "service",
-        invoice_date: new Date().toISOString().split("T")[0],
-        dms_invoice_number: job.ro_number || undefined,
-        customer_name: job.customer_name,
-        customer_phone: job.customer_phone || undefined,
-        vehicle_model: job.vehicle_model || undefined,
-        vehicle_variant: job.vehicle_variant || undefined,
-        vin_number: job.vin_number || undefined,
-        engine_number: job.engine_number || undefined,
-        base_amount: parseFloat(amount),
-        payment_mode: paymentMode as
-          | "cash"
-          | "cheque"
-          | "upi"
-          | "bank_transfer"
-          | "card"
-          | "finance"
-          | "credit",
-        payment_reference: paymentRef || undefined,
-        cashbook_id: cashbookId || undefined,
-        notes: job.description || undefined,
-        company_id: companyId,
-        branch_id: branchId,
-        financial_year_id: financialYearId,
-        created_by: userId,
-      });
+      try {
+        // Step 1: Create sales receipt
+        const receiptResult = await createSalesReceipt({
+          invoice_type: "service",
+          invoice_date: new Date().toISOString().split("T")[0],
+          dms_invoice_number: job.ro_number || undefined,
+          customer_name: job.customer_name,
+          customer_phone: job.customer_phone || undefined,
+          vehicle_model: job.vehicle_model || undefined,
+          vehicle_variant: job.vehicle_variant || undefined,
+          vin_number: job.vin_number || undefined,
+          engine_number: job.engine_number || undefined,
+          base_amount: parseFloat(amount),
+          payment_mode: paymentMode as
+            | "cash"
+            | "cheque"
+            | "upi"
+            | "bank_transfer"
+            | "card"
+            | "finance"
+            | "credit",
+          payment_reference: paymentRef || undefined,
+          cashbook_id: cashbookId || undefined,
+          notes: job.description || undefined,
+          company_id: companyId,
+          branch_id: branchId,
+          financial_year_id: financialYearId,
+          created_by: userId,
+        });
 
-      if (receiptResult.error) {
-        toast.error(receiptResult.error);
-        return;
+        if (!receiptResult || receiptResult.error) {
+          toast.error(receiptResult?.error ?? "Failed to create sales receipt. Please try again.");
+          return;
+        }
+
+        // Step 2: Mark R/O as completed
+        await completePendingRoJob(job.id, receiptResult.invoiceId!);
+
+        toast.success("Sales receipt created — issue gate pass to complete delivery.");
+        onOpenChange(false);
+        router.push(`/invoices/${receiptResult.invoiceId}`);
+      } catch (err) {
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "Something went wrong. Please try again."
+        );
       }
-
-      // Step 2: Mark R/O as completed
-      await completePendingRoJob(job.id, receiptResult.invoiceId!);
-
-      toast.success("Sales receipt created — issue gate pass to complete delivery.");
-      onOpenChange(false);
-      router.push(`/invoices/${receiptResult.invoiceId}`);
     });
   };
 

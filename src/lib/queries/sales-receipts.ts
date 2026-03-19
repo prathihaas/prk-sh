@@ -73,7 +73,12 @@ export async function createSalesReceipt(
     financial_year_id: string;
   }
 ) {
-  const validated = salesReceiptSchema.parse(values);
+  const parseResult = salesReceiptSchema.safeParse(values);
+  if (!parseResult.success) {
+    const msg = parseResult.error.issues.map((i) => i.message).join("; ");
+    return { error: `Validation failed: ${msg}` };
+  }
+  const validated = parseResult.data;
   const supabase = await createClient();
 
   // ── Guard required scope IDs ──────────────────────────────────────────────
