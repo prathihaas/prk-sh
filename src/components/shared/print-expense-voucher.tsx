@@ -259,13 +259,24 @@ export function PrintExpenseVoucher({
           </div>
         </div>
 
-        {/* Narration */}
-        {expense.notes && (
-          <div className="border-b-2 border-gray-800 print-border px-6 py-3">
-            <p className="text-xs text-gray-600 mb-1">Narration / Remarks:</p>
-            <p className="text-sm">{expense.notes}</p>
-          </div>
-        )}
+        {/* Narration — always shown; description is the primary narration, notes are additional */}
+        <div className="border-b-2 border-gray-800 print-border px-6 py-3 space-y-1">
+          <p className="text-xs text-gray-600">Narration:</p>
+          <p className="text-sm font-medium border-b border-dashed border-gray-400 pb-1">
+            {expense.description}
+          </p>
+          {expense.notes && (
+            <>
+              <p className="text-xs text-gray-600 mt-2">Remarks:</p>
+              <p className="text-sm">{expense.notes}</p>
+            </>
+          )}
+          {expense.paid_by && (
+            <p className="text-xs text-gray-500 mt-1">
+              Paid by: <span className="font-medium text-gray-700">{expense.paid_by}</span>
+            </p>
+          )}
+        </div>
 
         {/* Approval Trail */}
         <div className="border-b-2 border-gray-800 print-border px-6 py-3">

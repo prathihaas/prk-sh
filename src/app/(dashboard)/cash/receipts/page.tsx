@@ -18,7 +18,9 @@ const RECEIPT_EXPORT_COLUMNS = [
   { key: "amount", header: "Amount (INR)", width: 16, format: "currency" as const },
   { key: "payment_mode", header: "Payment Mode", width: 16 },
   { key: "narration", header: "Narration", width: 45 },
-  { key: "is_voided", header: "Status", width: 10 },
+  { key: "cashbook_name", header: "Cashbook", width: 22 },
+  { key: "created_by_name", header: "Processed By", width: 24 },
+  { key: "status_label", header: "Status", width: 12 },
 ];
 
 export default async function ReceiptsPage({
@@ -58,6 +60,18 @@ export default async function ReceiptsPage({
 
   const canCreate = permissions.has(PERMISSIONS.CASHBOOK_CREATE_TXN);
 
+  // Pre-process for export: flatten nested objects and format booleans
+  const exportData = (receipts as Record<string, unknown>[]).map((r) => {
+    const creator = r.creator as { full_name?: string } | null;
+    const cashbook = r.cashbook as { name?: string } | null;
+    return {
+      ...r,
+      created_by_name: creator?.full_name || "",
+      cashbook_name: cashbook?.name || "",
+      status_label: r.is_voided ? "Voided" : "Active",
+    };
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -72,7 +86,7 @@ export default async function ReceiptsPage({
         />
         <div className="flex-shrink-0 pt-1">
           <ExportButton
-            data={receipts as Record<string, unknown>[]}
+            data={exportData}
             columns={RECEIPT_EXPORT_COLUMNS}
             filename={`receipts_${new Date().toISOString().split("T")[0]}`}
             label="Export Receipts"

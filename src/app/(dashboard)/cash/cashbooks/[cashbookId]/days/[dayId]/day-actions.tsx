@@ -26,6 +26,8 @@ interface DayActionsProps {
   managerId?: string;
   managerName?: string;
   companyId?: string;
+  /** Show denomination count table on day close */
+  showDenomination?: boolean;
 }
 
 export function DayActions({
@@ -39,6 +41,7 @@ export function DayActions({
   managerId,
   managerName,
   companyId = "",
+  showDenomination = false,
 }: DayActionsProps) {
   const [managerOtpVerified, setManagerOtpVerified] = useState(false);
   const [showOtpDialog, setShowOtpDialog] = useState(false);
@@ -84,6 +87,7 @@ export function DayActions({
                   dayId={dayId}
                   systemClosing={systemClosing}
                   currentUserId={currentUserId}
+                  showDenomination={showDenomination}
                 />
               )}
             </CardContent>

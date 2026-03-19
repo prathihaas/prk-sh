@@ -28,7 +28,11 @@ const EXPORT_COLUMNS = [
   { key: "expense_date", header: "Date", width: 14, format: "date" as const },
   { key: "category_name", header: "Category", width: 22 },
   { key: "amount", header: "Amount (INR)", width: 16, format: "currency" as const },
+  { key: "description", header: "Narration / Description", width: 40 },
+  { key: "bill_reference", header: "Bill / Ref No", width: 20 },
+  { key: "payment_mode", header: "Payment Mode", width: 16 },
   { key: "approval_status", header: "Status", width: 20 },
+  { key: "submitted_by_name", header: "Submitted By", width: 24 },
 ];
 
 export default async function ExpenseReportPage({
@@ -107,11 +111,17 @@ export default async function ExpenseReportPage({
   }
   const categoryBreakdown = Array.from(categoryMap.values()).sort((a, b) => b.total - a.total);
 
-  const exportData = (expenses as Record<string, unknown>[]).map((exp) => ({
-    ...exp,
+  const exportData = (expenses as Record<string, unknown>[]).map((exp) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    category_name: ((exp as any).category as { name: string } | null)?.name || "",
-  }));
+    const category = ((exp as any).category as { name: string } | null)?.name || "";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const submitter = ((exp as any).submitter as { full_name?: string } | null)?.full_name || "";
+    return {
+      ...exp,
+      category_name: category,
+      submitted_by_name: submitter,
+    };
+  });
 
   return (
     <div className="space-y-6">

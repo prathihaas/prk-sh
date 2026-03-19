@@ -153,3 +153,35 @@ export async function updateFinanceCompanies(
   revalidatePath("/settings/company-partners");
   return { success: true };
 }
+
+// ── Denomination counting for cashbook day close ────────────────────────────
+
+export async function getDenominationSetting(companyId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("company_configs")
+    .select("config_value")
+    .eq("company_id", companyId)
+    .eq("config_key", "denomination_required")
+    .single();
+
+  if (!data?.config_value) return false;
+  return data.config_value === true;
+}
+
+export async function updateDenominationSetting(
+  companyId: string,
+  enabled: boolean
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("company_configs")
+    .upsert(
+      { company_id: companyId, config_key: "denomination_required", config_value: enabled },
+      { onConflict: "company_id,config_key" }
+    );
+
+  if (error) return { error: error.message };
+  revalidatePath("/settings/denomination");
+  return { success: true };
+}

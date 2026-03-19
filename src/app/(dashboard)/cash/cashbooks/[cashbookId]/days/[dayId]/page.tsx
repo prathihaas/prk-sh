@@ -5,6 +5,7 @@ import { getCashbook } from "@/lib/queries/cashbooks";
 import { getCashbookDay } from "@/lib/queries/cashbook-days";
 import { getTransactions } from "@/lib/queries/cashbook-transactions";
 import { getAuditLogs } from "@/lib/queries/audit-log";
+import { getDenominationSetting } from "@/lib/queries/company-configs";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -48,9 +49,12 @@ export default async function CashbookDayDetailPage({
   const { cookies } = await import("next/headers");
   const cs = await cookies();
   const companyId = cs.get("scope_company_id")?.value || "";
-  const auditLogs = companyId
-    ? await getAuditLogs(companyId, { table_name: "cashbook_transactions", from_date: day.date, to_date: day.date })
-    : [];
+  const [auditLogs, showDenomination] = await Promise.all([
+    companyId
+      ? getAuditLogs(companyId, { table_name: "cashbook_transactions", from_date: day.date, to_date: day.date })
+      : Promise.resolve([]),
+    companyId ? getDenominationSetting(companyId) : Promise.resolve(false),
+  ]);
 
   const dateFormatted = new Date(day.date).toLocaleDateString("en-IN", {
     day: "2-digit", month: "long", year: "numeric",
@@ -102,7 +106,7 @@ export default async function CashbookDayDetailPage({
         </Card>
       </div>
 
-      <DayActions dayId={dayId} dayStatus={day.status} systemClosing={day.system_closing} currentUserId={user.id} canClose={canClose} canReopen={canReopen} />
+      <DayActions dayId={dayId} dayStatus={day.status} systemClosing={day.system_closing} currentUserId={user.id} canClose={canClose} canReopen={canReopen} showDenomination={showDenomination} />
 
       <Tabs defaultValue="transactions">
         <div className="flex items-center justify-between flex-wrap gap-3">

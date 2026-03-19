@@ -23,6 +23,8 @@ interface PrintDeliveryChallanProps {
     delivery_challan_number?: string | null;
     delivery_challan_date?: string | null;
     delivery_address?: string | null;
+    narration?: string | null;
+    notes?: string | null;
   };
   company: {
     name: string;
@@ -195,6 +197,14 @@ export function PrintDeliveryChallan({ invoice, company, branch }: PrintDelivery
               </tr>
             </tbody>
           </table>
+        </div>
+
+        {/* Narration / Remarks — always shown */}
+        <div className="border-b-2 border-gray-800 print-border px-6 py-3">
+          <p className="text-xs text-gray-600 mb-0.5">Narration / Remarks:</p>
+          <p className="text-sm border-b border-dashed border-gray-400 pb-1">
+            {invoice.narration || invoice.notes || "—"}
+          </p>
         </div>
 
         {/* Terms */}

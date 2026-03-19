@@ -18,7 +18,8 @@ export async function getReceipts(
     .from("cashbook_transactions")
     .select(`
       *,
-      creator:user_profiles!cashbook_transactions_created_by_fkey(id, full_name, email)
+      creator:user_profiles!cashbook_transactions_created_by_fkey(id, full_name, email),
+      cashbook:cashbooks(id, name)
     `)
     .eq("txn_type", "receipt")
     .eq("company_id", companyId)
@@ -48,10 +49,10 @@ export async function getReceipts(
 export async function getReceiptWithContext(id: string) {
   const supabase = await createClient();
 
-  // Get the transaction
+  // Get the transaction with creator info
   const { data: transaction, error: txnError } = await supabase
     .from("cashbook_transactions")
-    .select("*")
+    .select("*, creator:user_profiles!cashbook_transactions_created_by_fkey(id, full_name)")
     .eq("id", id)
     .single();
 

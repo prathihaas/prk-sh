@@ -48,7 +48,9 @@ interface PrintSalesReceiptProps {
       cess?: number;
     } | null;
     grand_total: number;
+    balance_due?: number | null;
     notes?: string | null;
+    narration?: string | null;
   };
   payment: {
     payment_mode: string;
@@ -317,20 +319,28 @@ export function PrintSalesReceipt({
               <div className="text-right">
                 <p className="text-xs text-gray-600">Amount Paid</p>
                 <p className="text-lg font-bold tabular-nums">{formatINR(payment.amount)}</p>
-                <p className="text-xs text-green-700 font-semibold mt-0.5">PAID IN FULL</p>
+                {invoice.balance_due != null && invoice.balance_due > 0 ? (
+                  <>
+                    <p className="text-xs text-orange-700 font-semibold mt-0.5">PARTIAL PAYMENT</p>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      Balance Due: {formatINR(invoice.balance_due)}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-green-700 font-semibold mt-0.5">PAID IN FULL</p>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* Notes */}
-        {invoice.notes && (
-          <div className="border-b-2 border-gray-800 print-border px-6 py-3">
-            <p className="text-xs text-gray-600">
-              <span className="font-semibold">Notes:</span> {invoice.notes}
-            </p>
-          </div>
-        )}
+        {/* Narration / Notes — always shown */}
+        <div className="border-b-2 border-gray-800 print-border px-6 py-3">
+          <p className="text-xs text-gray-600 mb-0.5">Narration / Remarks:</p>
+          <p className="text-sm border-b border-dashed border-gray-400 pb-1">
+            {invoice.narration || invoice.notes || "—"}
+          </p>
+        </div>
 
         {/* Terms */}
         <div className="border-b-2 border-gray-800 print-border px-6 py-3">

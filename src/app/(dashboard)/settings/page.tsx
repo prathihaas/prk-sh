@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Settings2, ListChecks, UserCog, Webhook, IndianRupee, Building2 } from "lucide-react";
+import { Settings2, ListChecks, UserCog, Webhook, IndianRupee, Building2, Banknote } from "lucide-react";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -139,6 +139,27 @@ export default async function SettingsPage() {
               <CardContent>
                 <p className="text-sm text-muted-foreground">
                   Add or remove partner company names that appear as dropdown options
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
+        {canConfigureApproval && (
+          <Link href="/settings/denomination" className="block">
+            <Card className="h-full transition-colors hover:border-primary">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Banknote className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle className="text-lg">Denomination Settings</CardTitle>
+                </div>
+                <CardDescription>
+                  Require cashiers to enter note-wise and coin-wise denomination
+                  count before closing a cashbook day
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Applies to all cashbooks across all branches
                 </p>
               </CardContent>
             </Card>

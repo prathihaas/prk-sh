@@ -21,6 +21,7 @@ interface PrintReceiptProps {
     is_voided: boolean;
     void_reason?: string | null;
     voided_at?: string | null;
+    creator?: { full_name?: string | null } | null;
   };
   company: {
     name: string;
@@ -237,7 +238,15 @@ export function PrintReceipt({
 
         {/* ── Signature Block ── */}
         <div className="px-6 py-6">
-          <div className="flex justify-between items-end mt-8">
+          {transaction.creator?.full_name && (
+            <p className="text-xs text-gray-500 mb-4">
+              Processed by:{" "}
+              <span className="font-medium text-gray-700">
+                {transaction.creator.full_name}
+              </span>
+            </p>
+          )}
+          <div className="flex justify-between items-end mt-4">
             <div className="text-center">
               <div className="w-40 border-b border-gray-800 mb-1" />
               <p className="text-xs font-medium">Received By</p>
