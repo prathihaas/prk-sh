@@ -5,16 +5,7 @@ import { useRouter } from "next/navigation";
 import { FileText, ShieldCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { PrintDeliveryChallan } from "@/components/shared/print-delivery-challan";
 import { generateDeliveryChallan } from "@/lib/queries/invoices";
 
@@ -55,8 +46,6 @@ interface DeliveryChallanSectionProps {
   canIssue: boolean;
 }
 
-type Phase = "idle" | "address" | "generating";
-
 export function DeliveryChallanSection({
   invoice,
   company,
@@ -66,14 +55,10 @@ export function DeliveryChallanSection({
   canIssue,
 }: DeliveryChallanSectionProps) {
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [deliveryAddress, setDeliveryAddress] = useState(
-    invoice.customer_address || ""
-  );
+  const [generating, setGenerating] = useState(false);
   const [localChallan, setLocalChallan] = useState<{
     challan_number: string;
     challan_date: string;
-    delivery_address: string;
   } | null>(
     invoice.delivery_challan_number
       ? {
@@ -81,7 +66,6 @@ export function DeliveryChallanSection({
           challan_date:
             invoice.delivery_challan_date ||
             new Date().toISOString().split("T")[0],
-          delivery_address: invoice.delivery_address || "",
         }
       : null
   );
@@ -92,22 +76,19 @@ export function DeliveryChallanSection({
       localChallan?.challan_number ?? invoice.delivery_challan_number,
     delivery_challan_date:
       localChallan?.challan_date ?? invoice.delivery_challan_date,
-    delivery_address:
-      localChallan?.delivery_address ?? invoice.delivery_address,
   };
 
   const handleGenerateChallan = async () => {
-    setPhase("generating");
-    const result = await generateDeliveryChallan(invoice.id, deliveryAddress);
+    setGenerating(true);
+    const result = await generateDeliveryChallan(invoice.id, "");
     if (result.error) {
       toast.error(result.error);
-      setPhase("idle");
+      setGenerating(false);
       return;
     }
     setLocalChallan({
       challan_number: result.challan_number!,
       challan_date: new Date().toISOString().split("T")[0],
-      delivery_address: deliveryAddress,
     });
     toast.success(`Gate Pass ${result.challan_number} issued`);
     router.refresh();
@@ -139,12 +120,6 @@ export function DeliveryChallanSection({
                 )}
               </p>
             </div>
-            {localChallan.delivery_address && (
-              <div className="col-span-2">
-                <p className="text-muted-foreground">Delivery Address</p>
-                <p>{localChallan.delivery_address}</p>
-              </div>
-            )}
           </div>
           <PrintDeliveryChallan
             invoice={invoiceForPrint}
@@ -158,103 +133,44 @@ export function DeliveryChallanSection({
 
   // Not yet issued
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Gate Pass
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {invoice.is_cancelled ? (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5" />
+          Gate Pass
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {invoice.is_cancelled ? (
+          <p className="text-sm text-muted-foreground">
+            Cannot issue a gate pass for a cancelled invoice.
+          </p>
+        ) : !canIssue ? (
+          <p className="text-sm text-muted-foreground">
+            You do not have permission to issue gate passes.
+          </p>
+        ) : (
+          <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Cannot issue a gate pass for a cancelled invoice.
+              No gate pass issued yet. Click below to authorise physical
+              delivery of goods.
             </p>
-          ) : !canIssue ? (
-            <p className="text-sm text-muted-foreground">
-              You do not have permission to issue gate passes.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                No gate pass issued yet. Issue a gate pass to authorise
-                physical delivery of goods.
-              </p>
-              <Button
-                onClick={() => setPhase("address")}
-                disabled={phase === "generating"}
-              >
-                {phase === "generating" ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating…
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck className="mr-2 h-4 w-4" />
-                    Issue Gate Pass
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Step 1 — Delivery address */}
-      <Dialog
-        open={phase === "address"}
-        onOpenChange={(o) => !o && setPhase("idle")}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Issue Gate Pass</DialogTitle>
-            <DialogDescription>
-              Confirm the delivery address, then click Generate to issue the
-              gate pass.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div className="space-y-2">
-              <Label htmlFor="delivery-address">Delivery Address</Label>
-              <Textarea
-                id="delivery-address"
-                value={deliveryAddress}
-                onChange={(e) => setDeliveryAddress(e.target.value)}
-                placeholder="Enter delivery address…"
-                rows={3}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                className="flex-1"
-                onClick={handleGenerateChallan}
-                disabled={phase === "generating"}
-              >
-                {phase === "generating" ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating…
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck className="mr-2 h-4 w-4" />
-                    Generate Gate Pass
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setPhase("idle")}
-                disabled={phase === "generating"}
-              >
-                Cancel
-              </Button>
-            </div>
+            <Button onClick={handleGenerateChallan} disabled={generating}>
+              {generating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  Issue Gate Pass
+                </>
+              )}
+            </Button>
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -32,6 +32,7 @@ import {
   Building,
   FileCode2,
   Settings2,
+  Wrench,
 } from "lucide-react";
 import { PERMISSIONS } from "./permissions";
 import type { NavSection } from "@/types/navigation";
@@ -142,6 +143,12 @@ export const navigationItems: NavSection[] = [
         title: "Sales Receipts",
         href: "/sales/sales-receipts",
         icon: ReceiptText,
+        permission: PERMISSIONS.SALES_RECEIPT_VIEW,
+      },
+      {
+        title: "Pending R/O",
+        href: "/sales/pending-ro",
+        icon: Wrench,
         permission: PERMISSIONS.SALES_RECEIPT_VIEW,
       },
       {
