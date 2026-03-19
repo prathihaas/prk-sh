@@ -8,7 +8,98 @@ import {
   expensePaymentSchema,
   type ExpensePaymentFormValues,
 } from "@/lib/validators/expense";
-import { getCashLimits } from "@/lib/queries/company-configs";
+import { getCashLimits, getTelegramBotToken, getTelegramExpenseApprovers } from "@/lib/queries/company-configs";
+import { sendExpenseApprovalRequest } from "@/lib/utils/telegram-notify";
+
+// ── Internal: Notify next approver via Telegram ──────────────────────────────
+
+type ApprovalLevel = "branch" | "accounts" | "owner";
+
+async function notifyNextApprover(
+  expenseId: string,
+  companyId: string,
+  level: ApprovalLevel
+): Promise<void> {
+  // Fire-and-forget: errors are logged but do not affect the main flow
+  try {
+    const supabase = await createClient();
+
+    const [botToken, approvers] = await Promise.all([
+      getTelegramBotToken(companyId),
+      getTelegramExpenseApprovers(companyId),
+    ]);
+
+    if (!botToken) return;
+
+    const approverIdMap: Record<ApprovalLevel, string | null> = {
+      branch: approvers.branch_approver_id,
+      accounts: approvers.accounts_approver_id,
+      owner: approvers.owner_approver_id,
+    };
+
+    const approverId = approverIdMap[level];
+    if (!approverId) return;
+
+    const { data: approverProfile } = await supabase
+      .from("user_profiles")
+      .select("telegram_chat_id")
+      .eq("id", approverId)
+      .maybeSingle();
+
+    if (!approverProfile?.telegram_chat_id) return;
+
+    const { data: expense } = await supabase
+      .from("expenses")
+      .select(`
+        id, amount, description, expense_date, company_id, branch_id,
+        category:expense_categories(name),
+        submitter:user_profiles!expenses_submitted_by_fkey(full_name)
+      `)
+      .eq("id", expenseId)
+      .maybeSingle();
+
+    if (!expense) return;
+
+    const { data: company } = await supabase
+      .from("companies")
+      .select("name")
+      .eq("id", companyId)
+      .maybeSingle();
+
+    let branchName: string | undefined;
+    if (expense.branch_id) {
+      const { data: branch } = await supabase
+        .from("branches")
+        .select("name")
+        .eq("id", expense.branch_id)
+        .maybeSingle();
+      branchName = branch?.name;
+    }
+
+    const categoryName = (expense.category as { name?: string } | null)?.name || "Expense";
+    const submitterName = (expense.submitter as { full_name?: string } | null)?.full_name || "Unknown";
+
+    await sendExpenseApprovalRequest(
+      {
+        expenseId: expense.id,
+        amount: expense.amount,
+        description: expense.description,
+        categoryName,
+        expenseDate: expense.expense_date,
+        submitterName,
+        companyName: company?.name,
+        branchName,
+      },
+      level,
+      botToken,
+      approverProfile.telegram_chat_id
+    );
+  } catch (err) {
+    console.error("[telegram] notifyNextApprover error:", err);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Get a single expense with full context for the printable voucher view:
@@ -136,6 +227,14 @@ export async function updateExpense(id: string, values: ExpenseFormValues) {
 
 export async function submitExpense(id: string) {
   const supabase = await createClient();
+  const { data: expense, error: fetchErr } = await supabase
+    .from("expenses")
+    .select("company_id, approval_status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchErr || !expense) return { error: fetchErr?.message || "Expense not found" };
+
   const { error } = await supabase
     .from("expenses")
     .update({ approval_status: "submitted" })
@@ -144,6 +243,10 @@ export async function submitExpense(id: string) {
 
   if (error) return { error: error.message };
   revalidatePath("/expenses");
+
+  // Notify branch approver (fire-and-forget)
+  void notifyNextApprover(id, expense.company_id, "branch");
+
   return { success: true };
 }
 
@@ -151,6 +254,12 @@ export async function approveExpenseBranch(id: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  const { data: expense } = await supabase
+    .from("expenses")
+    .select("company_id")
+    .eq("id", id)
+    .maybeSingle();
 
   const { error } = await supabase
     .from("expenses")
@@ -164,6 +273,10 @@ export async function approveExpenseBranch(id: string) {
 
   if (error) return { error: error.message };
   revalidatePath("/expenses");
+
+  // Notify accounts approver (fire-and-forget)
+  if (expense?.company_id) void notifyNextApprover(id, expense.company_id, "accounts");
+
   return { success: true };
 }
 
@@ -171,6 +284,12 @@ export async function approveExpenseAccounts(id: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  const { data: expense } = await supabase
+    .from("expenses")
+    .select("company_id")
+    .eq("id", id)
+    .maybeSingle();
 
   const { error } = await supabase
     .from("expenses")
@@ -184,6 +303,10 @@ export async function approveExpenseAccounts(id: string) {
 
   if (error) return { error: error.message };
   revalidatePath("/expenses");
+
+  // Notify owner approver (fire-and-forget)
+  if (expense?.company_id) void notifyNextApprover(id, expense.company_id, "owner");
+
   return { success: true };
 }
 

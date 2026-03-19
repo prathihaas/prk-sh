@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Settings2, ListChecks, UserCog, Webhook, IndianRupee, Building2, Banknote } from "lucide-react";
+import { Settings2, ListChecks, UserCog, Webhook, IndianRupee, Building2, Banknote, Send } from "lucide-react";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -160,6 +160,27 @@ export default async function SettingsPage() {
               <CardContent>
                 <p className="text-sm text-muted-foreground">
                   Applies to all cashbooks across all branches
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
+        {canConfigureApproval && (
+          <Link href="/settings/telegram" className="block">
+            <Card className="h-full transition-colors hover:border-primary">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Send className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle className="text-lg">Telegram Bot</CardTitle>
+                </div>
+                <CardDescription>
+                  Configure the Telegram bot for day-close OTP approvals and
+                  expense approval notifications with inline Approve / Reject buttons
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Set bot token, assign managers per cashbook, and wire up expense approvers
                 </p>
               </CardContent>
             </Card>

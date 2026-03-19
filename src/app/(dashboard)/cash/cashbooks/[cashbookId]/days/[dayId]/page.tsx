@@ -5,7 +5,7 @@ import { getCashbook } from "@/lib/queries/cashbooks";
 import { getCashbookDay } from "@/lib/queries/cashbook-days";
 import { getTransactions } from "@/lib/queries/cashbook-transactions";
 import { getAuditLogs } from "@/lib/queries/audit-log";
-import { getDenominationSetting } from "@/lib/queries/company-configs";
+import { getDenominationSetting, getTelegramDayCloseManager } from "@/lib/queries/company-configs";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -49,13 +49,16 @@ export default async function CashbookDayDetailPage({
   const { cookies } = await import("next/headers");
   const cs = await cookies();
   const companyId = cs.get("scope_company_id")?.value || "";
-  const [auditLogs, showDenomination] = await Promise.all([
+  const [auditLogs, showDenomination, telegramManager] = await Promise.all([
     companyId
       ? getAuditLogs(companyId, { table_name: "cashbook_transactions", from_date: day.date, to_date: day.date })
       : Promise.resolve([]),
     companyId
       ? getDenominationSetting(companyId, cashbook.branch_id ?? null, cashbookId)
       : Promise.resolve(false),
+    companyId
+      ? getTelegramDayCloseManager(companyId, cashbook.branch_id ?? null, cashbookId)
+      : Promise.resolve(null),
   ]);
 
   const dateFormatted = new Date(day.date).toLocaleDateString("en-IN", {
@@ -108,7 +111,19 @@ export default async function CashbookDayDetailPage({
         </Card>
       </div>
 
-      <DayActions dayId={dayId} dayStatus={day.status} systemClosing={day.system_closing} currentUserId={user.id} canClose={canClose} canReopen={canReopen} showDenomination={showDenomination} />
+      <DayActions
+        dayId={dayId}
+        dayStatus={day.status}
+        systemClosing={day.system_closing}
+        currentUserId={user.id}
+        canClose={canClose}
+        canReopen={canReopen}
+        showDenomination={showDenomination}
+        requireManagerOtp={!!telegramManager}
+        managerId={telegramManager?.userId}
+        managerName={telegramManager?.userName}
+        companyId={companyId || undefined}
+      />
 
       <Tabs defaultValue="transactions">
         <div className="flex items-center justify-between flex-wrap gap-3">

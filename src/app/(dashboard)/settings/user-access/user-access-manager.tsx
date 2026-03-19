@@ -4,8 +4,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import {
   Save, UserCog, CheckSquare, Square, Wallet, RefreshCw,
-  ChevronDown, Building2, GitBranch, ShieldCheck,
+  ChevronDown, Building2, GitBranch, ShieldCheck, MessageCircle,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -65,6 +66,7 @@ interface UserAccessManagerProps {
   cashbooks: Cashbook[];
   initialOverrides: Record<string, string[]>;
   initialCashierAssignments: Record<string, string>;
+  initialTelegramChatIds: Record<string, string | null>;
   primaryCompanyId: string | null;
 }
 
@@ -77,6 +79,7 @@ export function UserAccessManager({
   cashbooks,
   initialOverrides,
   initialCashierAssignments,
+  initialTelegramChatIds,
   primaryCompanyId,
 }: UserAccessManagerProps) {
   const [selectedUser, setSelectedUser] = useState<string | null>(users[0]?.id || null);
@@ -97,6 +100,14 @@ export function UserAccessManager({
   // Section 3: Special permissions
   const [overrides, setOverrides] = useState<Record<string, string[]>>(initialOverrides);
   const [isSavingPerms, setIsSavingPerms] = useState(false);
+
+  // Section 4: Telegram Chat IDs
+  const [telegramChatIds, setTelegramChatIds] = useState<Record<string, string>>(
+    Object.fromEntries(
+      Object.entries(initialTelegramChatIds).map(([uid, cid]) => [uid, cid ?? ""])
+    )
+  );
+  const [savingTelegramFor, setSavingTelegramFor] = useState<string | null>(null);
 
   // ─── Access helpers ───────────────────────────────────────────────────
 
@@ -234,6 +245,27 @@ export function UserAccessManager({
       toast.error(String(err instanceof Error ? err.message : err));
     } finally {
       setIsSavingPerms(false);
+    }
+  }
+
+  async function saveTelegramChatId(userId: string) {
+    setSavingTelegramFor(userId);
+    try {
+      const res = await fetch("/api/settings/telegram-chat-id", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          telegram_chat_id: telegramChatIds[userId] || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save");
+      toast.success("Telegram Chat ID saved");
+    } catch (err) {
+      toast.error(String(err instanceof Error ? err.message : err));
+    } finally {
+      setSavingTelegramFor(null);
     }
   }
 
@@ -610,6 +642,62 @@ export function UserAccessManager({
             )}
           </div>
         </div>
+      </section>
+
+      {/* ═══ SECTION 4: Telegram Chat IDs ═══════════════════════════════════ */}
+      <section>
+        <div className="flex items-center gap-2 mb-1">
+          <MessageCircle className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">Telegram Chat IDs</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-1">
+          Link each manager&apos;s Telegram account so they can receive OTP codes and expense approval requests.
+        </p>
+        <p className="text-xs text-muted-foreground mb-4">
+          Ask each user to message <span className="font-mono bg-muted px-1 rounded">@userinfobot</span> on Telegram — it will reply with their numeric Chat ID.
+        </p>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">User Telegram Chat IDs</CardTitle>
+            <CardDescription>Numeric ID only (e.g. 123456789). Leave blank to disconnect.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {users.map((u) => (
+              <div key={u.id} className="flex items-center gap-3 rounded-lg border p-3 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{u.full_name || u.email || "Unknown"}</p>
+                  {u.full_name && u.email && (
+                    <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={telegramChatIds[u.id] ?? ""}
+                    onChange={(e) =>
+                      setTelegramChatIds((prev) => ({ ...prev, [u.id]: e.target.value }))
+                    }
+                    placeholder="e.g. 123456789"
+                    className="w-44 font-mono text-sm h-8"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1"
+                    onClick={() => saveTelegramChatId(u.id)}
+                    disabled={savingTelegramFor === u.id}
+                  >
+                    {savingTelegramFor === u.id ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
+                    Save
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </section>
 
     </div>

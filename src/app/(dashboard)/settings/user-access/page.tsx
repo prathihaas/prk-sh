@@ -77,6 +77,22 @@ export default async function UserAccessPage() {
     .eq("group_id", groupId)
     .eq("is_active", true);
 
+  // ── Load telegram_chat_id for all users in group ─────────────────────
+  const allUserIds = Array.from(
+    new Set((existingAssignments || []).map((a: { user_id: string }) => a.user_id))
+  );
+  const { data: telegramProfiles } = allUserIds.length > 0
+    ? await supabase
+        .from("user_profiles")
+        .select("id, telegram_chat_id")
+        .in("id", allUserIds)
+    : { data: [] };
+
+  const telegramChatIds: Record<string, string | null> = {};
+  for (const p of (telegramProfiles || []) as Array<{ id: string; telegram_chat_id: string | null }>) {
+    telegramChatIds[p.id] = p.telegram_chat_id;
+  }
+
   // Collect unique users and their current access map
   const usersMap = new Map<
     string,
@@ -230,6 +246,7 @@ export default async function UserAccessPage() {
         }))}
         initialOverrides={mergedOverrides}
         initialCashierAssignments={mergedCashierAssignments}
+        initialTelegramChatIds={telegramChatIds}
         primaryCompanyId={primaryCompanyId}
       />
     </div>

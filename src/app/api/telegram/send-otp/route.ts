@@ -32,18 +32,19 @@ export async function POST(req: NextRequest) {
     // Get company's Telegram bot token from company_configs
     const { data: config, error: configError } = await supabase
       .from("company_configs")
-      .select("config")
+      .select("config_value")
       .eq("company_id", company_id)
-      .single();
+      .eq("config_key", "telegram_bot_token")
+      .maybeSingle();
 
-    if (configError || !(config?.config as Record<string, string>)?.telegram_bot_token) {
+    if (configError || !config?.config_value) {
       return NextResponse.json(
-        { error: "Telegram bot not configured for this company. Go to Settings → Telegram Configuration." },
+        { error: "Telegram bot not configured for this company. Go to Settings → Telegram to set up your bot token." },
         { status: 400 }
       );
     }
 
-    const botToken = (config.config as Record<string, string>).telegram_bot_token;
+    const botToken = config.config_value as string;
     const otp = generateOtp();
     const expiresAt = getOtpExpiry();
 

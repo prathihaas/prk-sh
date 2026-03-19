@@ -264,3 +264,189 @@ export async function updateDenominationCashbookOverride(
 export async function updateDenominationSetting(companyId: string, enabled: boolean) {
   return updateDenominationCompanySetting(companyId, enabled);
 }
+
+// ── Telegram Bot Config ────────────────────────────────────────────────────
+
+/** Get the Telegram bot token for a company */
+export async function getTelegramBotToken(companyId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("company_configs")
+    .select("config_value")
+    .eq("company_id", companyId)
+    .eq("config_key", "telegram_bot_token")
+    .maybeSingle();
+  return (data?.config_value as string) || null;
+}
+
+// ── Telegram Day-Close Managers ────────────────────────────────────────────
+
+export interface TelegramDayCloseConfig {
+  company_manager_id: string | null;
+  branch_overrides: Record<string, string | null>;
+  cashbook_overrides: Record<string, string | null>;
+}
+
+function parseTelegramDayCloseConfig(raw: unknown): TelegramDayCloseConfig {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const r = raw as Record<string, unknown>;
+    return {
+      company_manager_id: (r.company_manager_id as string) || null,
+      branch_overrides: (r.branch_overrides as Record<string, string | null>) || {},
+      cashbook_overrides: (r.cashbook_overrides as Record<string, string | null>) || {},
+    };
+  }
+  return { company_manager_id: null, branch_overrides: {}, cashbook_overrides: {} };
+}
+
+export async function getTelegramDayCloseConfig(companyId: string): Promise<TelegramDayCloseConfig> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("company_configs")
+    .select("config_value")
+    .eq("company_id", companyId)
+    .eq("config_key", "telegram_day_close")
+    .maybeSingle();
+  return parseTelegramDayCloseConfig(data?.config_value);
+}
+
+/**
+ * Resolve which manager should receive the day-close OTP for a given cashbook.
+ * Hierarchy: cashbook override → branch override → company default.
+ * Returns { userId, userName, chatId } or null if no manager is configured with a chat ID.
+ */
+export async function getTelegramDayCloseManager(
+  companyId: string,
+  branchId?: string | null,
+  cashbookId?: string | null
+): Promise<{ userId: string; userName: string; chatId: string } | null> {
+  const [config, supabase] = await Promise.all([
+    getTelegramDayCloseConfig(companyId),
+    createClient(),
+  ]);
+
+  let managerId: string | null = config.company_manager_id;
+
+  if (branchId && branchId in config.branch_overrides) {
+    managerId = config.branch_overrides[branchId];
+  }
+  if (cashbookId && cashbookId in config.cashbook_overrides) {
+    managerId = config.cashbook_overrides[cashbookId];
+  }
+
+  if (!managerId) return null;
+
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("id, full_name, telegram_chat_id")
+    .eq("id", managerId)
+    .maybeSingle();
+
+  if (!profile?.telegram_chat_id) return null;
+
+  return {
+    userId: profile.id,
+    userName: profile.full_name || "Manager",
+    chatId: profile.telegram_chat_id,
+  };
+}
+
+async function saveTelegramDayCloseConfig(companyId: string, config: TelegramDayCloseConfig) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("company_configs")
+    .upsert(
+      { company_id: companyId, config_key: "telegram_day_close", config_value: config },
+      { onConflict: "company_id,config_key" }
+    );
+  if (error) return { error: error.message };
+  revalidatePath("/settings/telegram");
+  return { success: true };
+}
+
+export async function updateTelegramDayCloseConfig(
+  companyId: string,
+  patch: Partial<TelegramDayCloseConfig>
+) {
+  const existing = await getTelegramDayCloseConfig(companyId);
+  return saveTelegramDayCloseConfig(companyId, { ...existing, ...patch });
+}
+
+export async function updateTelegramDayCloseCashbookOverride(
+  companyId: string,
+  cashbookId: string,
+  managerId: string | null
+) {
+  const config = await getTelegramDayCloseConfig(companyId);
+  const cashbook_overrides = { ...config.cashbook_overrides };
+  if (managerId === null) {
+    delete cashbook_overrides[cashbookId];
+  } else {
+    cashbook_overrides[cashbookId] = managerId;
+  }
+  return saveTelegramDayCloseConfig(companyId, { ...config, cashbook_overrides });
+}
+
+export async function updateTelegramDayCloseBranchOverride(
+  companyId: string,
+  branchId: string,
+  managerId: string | null
+) {
+  const config = await getTelegramDayCloseConfig(companyId);
+  const branch_overrides = { ...config.branch_overrides };
+  if (managerId === null) {
+    delete branch_overrides[branchId];
+  } else {
+    branch_overrides[branchId] = managerId;
+  }
+  return saveTelegramDayCloseConfig(companyId, { ...config, branch_overrides });
+}
+
+// ── Telegram Expense Approvers ─────────────────────────────────────────────
+
+export interface TelegramExpenseApprovers {
+  branch_approver_id: string | null;
+  accounts_approver_id: string | null;
+  owner_approver_id: string | null;
+}
+
+function parseTelegramExpenseApprovers(raw: unknown): TelegramExpenseApprovers {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const r = raw as Record<string, unknown>;
+    return {
+      branch_approver_id: (r.branch_approver_id as string) || null,
+      accounts_approver_id: (r.accounts_approver_id as string) || null,
+      owner_approver_id: (r.owner_approver_id as string) || null,
+    };
+  }
+  return { branch_approver_id: null, accounts_approver_id: null, owner_approver_id: null };
+}
+
+export async function getTelegramExpenseApprovers(
+  companyId: string
+): Promise<TelegramExpenseApprovers> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("company_configs")
+    .select("config_value")
+    .eq("company_id", companyId)
+    .eq("config_key", "telegram_expense_approvers")
+    .maybeSingle();
+  return parseTelegramExpenseApprovers(data?.config_value);
+}
+
+export async function updateTelegramExpenseApprovers(
+  companyId: string,
+  approvers: TelegramExpenseApprovers
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("company_configs")
+    .upsert(
+      { company_id: companyId, config_key: "telegram_expense_approvers", config_value: approvers },
+      { onConflict: "company_id,config_key" }
+    );
+  if (error) return { error: error.message };
+  revalidatePath("/settings/telegram");
+  return { success: true };
+}
