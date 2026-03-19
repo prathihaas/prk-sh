@@ -60,7 +60,7 @@ interface PrintSalesReceiptProps {
   } | null;
   company: {
     name: string;
-    gst_number?: string | null;
+    gstin?: string | null;
     address?: string | null;
     logo_url?: string | null;
   } | null;
@@ -74,7 +74,7 @@ interface PrintSalesReceiptProps {
 const printStyles = `
   @media print {
     body * { visibility: hidden !important; }
-    #print-sales-receipt-area, #print-sales-receipt-area * { visibility: visible !important; }
+    #print-sales-receipt-area, #print-sales-receipt-area * { visibility: visible !important; color: black !important; }
     #print-sales-receipt-area {
       position: absolute; left: 0; top: 0; width: 100%;
       background: white !important; color: black !important;
@@ -153,8 +153,8 @@ export function PrintSalesReceipt({
           {branch?.phone && (
             <p className="text-xs text-gray-600">Tel: {branch.phone}</p>
           )}
-          {company?.gst_number && (
-            <p className="text-sm font-medium mt-1">GSTIN: {company.gst_number}</p>
+          {company?.gstin && (
+            <p className="text-sm font-medium mt-1">GSTIN: {company.gstin}</p>
           )}
         </div>
 

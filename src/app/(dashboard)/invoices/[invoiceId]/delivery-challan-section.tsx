@@ -42,7 +42,7 @@ interface DeliveryChallanSectionProps {
   };
   company: {
     name: string;
-    gst_number?: string | null;
+    gstin?: string | null;
     address?: string | null;
     logo_url?: string | null;
   } | null;

@@ -99,7 +99,7 @@ export function PrintExpenseVoucher({
   const printStyles = `
     @media print {
       body * { visibility: hidden !important; }
-      #print-voucher-area, #print-voucher-area * { visibility: visible !important; }
+      #print-voucher-area, #print-voucher-area * { visibility: visible !important; color: black !important; }
       #print-voucher-area {
         position: absolute; left: 0; top: 0; width: 100%;
         background: white !important; color: black !important;

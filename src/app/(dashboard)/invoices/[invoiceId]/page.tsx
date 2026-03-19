@@ -38,7 +38,7 @@ export default async function InvoiceDetailPage({
     getInvoicePayments(invoiceId),
     supabase
       .from("companies")
-      .select("name, gst_number, address, logo_url")
+      .select("name, gstin, address, logo_url")
       .eq("id", invoice.company_id)
       .single(),
     supabase

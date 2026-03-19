@@ -74,6 +74,7 @@ export function PrintReceipt({
               #print-receipt-area,
               #print-receipt-area * {
                 visibility: visible !important;
+                color: black !important;
               }
               #print-receipt-area {
                 position: absolute;
