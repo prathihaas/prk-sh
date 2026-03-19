@@ -5,7 +5,6 @@ import { getUserPermissions } from "@/lib/auth/helpers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { getCustomersForSelect } from "@/lib/queries/customers";
 import { getCashbooks } from "@/lib/queries/cashbooks";
-import { getVehicles } from "@/lib/queries/vehicle-register";
 import {
   getInsuranceCompanies,
   getFinanceCompanies,
@@ -36,7 +35,6 @@ export default async function NewSalesReceiptPage() {
     fyResult,
     customers,
     rawCashbooks,
-    rawVehicles,
     insuranceCompanies,
     financeCompanies,
   ] = await Promise.all([
@@ -50,7 +48,6 @@ export default async function NewSalesReceiptPage() {
           .single(),
     getCustomersForSelect(companyId),
     getCashbooks(companyId, branchId, "cash"),
-    getVehicles(companyId, branchId),
     getInsuranceCompanies(companyId),
     getFinanceCompanies(companyId),
   ]);
@@ -61,16 +58,6 @@ export default async function NewSalesReceiptPage() {
   const cashbooks = (rawCashbooks as Record<string, unknown>[])
     .filter((cb) => cb.is_active)
     .map((cb) => ({ id: String(cb.id), name: String(cb.name) }));
-
-  // Vehicle register entries for the service vehicle picker
-  const serviceVehicles = (rawVehicles as Record<string, unknown>[]).map((v) => ({
-    id: String(v.id),
-    label:
-      [v.make, v.model, v.variant].filter(Boolean).join(" ") || "Unknown Vehicle",
-    vin_number: String(v.vin_number || v.chassis_number || ""),
-    engine_number: String(v.engine_number || ""),
-    status: String(v.status || ""),
-  }));
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -85,7 +72,6 @@ export default async function NewSalesReceiptPage() {
         financialYearId={financialYearId}
         customers={customers}
         cashbooks={cashbooks}
-        serviceVehicles={serviceVehicles}
         insuranceCompanies={insuranceCompanies}
         financeCompanies={financeCompanies}
       />

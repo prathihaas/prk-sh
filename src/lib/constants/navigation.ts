@@ -27,7 +27,6 @@ import {
   UserRound,
   Package,
   QrCode,
-  Car,
   ReceiptText,
   CreditCard,
   Building,
@@ -144,18 +143,6 @@ export const navigationItems: NavSection[] = [
         href: "/sales/sales-receipts",
         icon: ReceiptText,
         permission: PERMISSIONS.SALES_RECEIPT_VIEW,
-      },
-      {
-        title: "Vehicle Register",
-        href: "/sales/vehicle-register",
-        icon: Car,
-        permission: PERMISSIONS.VEHICLE_REGISTER_VIEW,
-      },
-      {
-        title: "Vehicle Reports",
-        href: "/sales/vehicle-register/reports",
-        icon: BarChart3,
-        permission: PERMISSIONS.VEHICLE_REGISTER_VIEW,
       },
       {
         title: "Customers",

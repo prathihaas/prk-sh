@@ -10,7 +10,6 @@ import {
   ChevronUp,
   ShieldCheck,
   BadgeDollarSign,
-  Car,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,14 +33,6 @@ import { createSalesReceipt } from "@/lib/queries/sales-receipts";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-interface ServiceVehicleOption {
-  id: string;
-  label: string;       // "Make Model Variant"
-  vin_number: string;
-  engine_number: string;
-  status: string;
-}
-
 interface SalesReceiptFormProps {
   userId: string;
   companyId: string;
@@ -49,7 +40,6 @@ interface SalesReceiptFormProps {
   financialYearId: string;
   customers: CustomerOption[];
   cashbooks: { id: string; name: string }[];
-  serviceVehicles: ServiceVehicleOption[];
   insuranceCompanies: string[];
   financeCompanies: string[];
 }
@@ -91,7 +81,6 @@ export function SalesReceiptForm({
   financialYearId,
   customers,
   cashbooks,
-  serviceVehicles,
   insuranceCompanies,
   financeCompanies,
 }: SalesReceiptFormProps) {
@@ -117,9 +106,6 @@ export function SalesReceiptForm({
   const [vehicleVariant, setVehicleVariant] = useState("");
   const [vinNumber, setVinNumber] = useState("");
   const [engineNumber, setEngineNumber] = useState("");
-
-  // ── Service vehicle (from vehicle register) ──────────────────────────────
-  const [selectedServiceVehicleId, setSelectedServiceVehicleId] = useState<string>("");
 
   // ── Insurance (service type only) ────────────────────────────────────────
   const [insuranceDue, setInsuranceDue] = useState(false);
@@ -182,17 +168,6 @@ export function SalesReceiptForm({
     }
   }
 
-  function handleServiceVehicleSelect(vehicleId: string) {
-    setSelectedServiceVehicleId(vehicleId);
-    if (!vehicleId || vehicleId === "none") return;
-    const v = serviceVehicles.find((sv) => sv.id === vehicleId);
-    if (v) {
-      setVehicleModel(v.label);
-      setVinNumber(v.vin_number);
-      setEngineNumber(v.engine_number);
-    }
-  }
-
   function handleInvoiceTypeChange(val: string) {
     setInvoiceType(val);
     // Reset type-specific fields when type changes
@@ -202,7 +177,6 @@ export function SalesReceiptForm({
     setFinanceDue(false);
     setFinanceCompany("");
     setFinanceAmount("");
-    setSelectedServiceVehicleId("");
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -564,46 +538,6 @@ export function SalesReceiptForm({
             <CardTitle>Service Vehicle Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Vehicle register picker */}
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5">
-                <Car className="h-4 w-4 text-muted-foreground" />
-                Link to Vehicle Register
-                <span className="font-normal text-xs text-muted-foreground">
-                  (optional — auto-fills fields below)
-                </span>
-              </Label>
-              {serviceVehicles.length > 0 ? (
-                <Select
-                  value={selectedServiceVehicleId}
-                  onValueChange={handleServiceVehicleSelect}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select vehicle from register…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— None (type manually) —</SelectItem>
-                    {serviceVehicles.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>
-                        {v.label}
-                        {v.vin_number ? ` · ${v.vin_number.slice(-8)}` : ""}
-                        {v.status ? ` [${v.status}]` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">
-                  No vehicles in the register yet. Type vehicle details manually below.
-                </p>
-              )}
-              {selectedServiceVehicleId && selectedServiceVehicleId !== "none" && (
-                <p className="text-xs text-green-600">
-                  ✓ Vehicle selected — details auto-filled below
-                </p>
-              )}
-            </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="svc_vehicle_model">Vehicle Model / Description</Label>
@@ -611,10 +545,7 @@ export function SalesReceiptForm({
                   id="svc_vehicle_model"
                   placeholder="e.g. Maruti Swift, Mahindra Thar"
                   value={vehicleModel}
-                  onChange={(e) => {
-                    setVehicleModel(e.target.value);
-                    setSelectedServiceVehicleId("");
-                  }}
+                  onChange={(e) => setVehicleModel(e.target.value)}
                 />
               </div>
               <div className="space-y-1.5">
@@ -632,10 +563,7 @@ export function SalesReceiptForm({
                   id="svc_vin"
                   placeholder="17-digit VIN or Chassis No."
                   value={vinNumber}
-                  onChange={(e) => {
-                    setVinNumber(e.target.value.toUpperCase());
-                    setSelectedServiceVehicleId("");
-                  }}
+                  onChange={(e) => setVinNumber(e.target.value.toUpperCase())}
                   className="font-mono"
                 />
               </div>
@@ -645,10 +573,7 @@ export function SalesReceiptForm({
                   id="svc_engine"
                   placeholder="Engine serial number"
                   value={engineNumber}
-                  onChange={(e) => {
-                    setEngineNumber(e.target.value.toUpperCase());
-                    setSelectedServiceVehicleId("");
-                  }}
+                  onChange={(e) => setEngineNumber(e.target.value.toUpperCase())}
                   className="font-mono"
                 />
               </div>
