@@ -84,18 +84,6 @@ export function PrintExpenseVoucher({
     rejected: "Rejected",
   };
 
-  const stageOrder = [
-    "submitted",
-    "branch_approved",
-    "accounts_approved",
-    "owner_approved",
-  ];
-  const effectiveStatus =
-    expense.approval_status === "paid" || expense.approval_status === "paid_direct"
-      ? "owner_approved"
-      : expense.approval_status;
-  const currentStageIndex = stageOrder.indexOf(effectiveStatus);
-
   const printStyles = `
     @media print {
       body * { visibility: hidden !important; }
@@ -280,72 +268,26 @@ export function PrintExpenseVoucher({
           )}
         </div>
 
-        {/* Approval Trail */}
+        {/* Created By / Approved By */}
         <div className="border-b-2 border-gray-800 print-border px-6 py-3">
-          <p className="text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-            Approval Trail
-          </p>
-          <div className="flex gap-3 text-xs">
-            {[
-              {
-                key: "submitted",
-                label: "Submitted",
-                approverName: expense.submitter?.full_name,
-                approvedAt: expense.expense_date,
-              },
-              {
-                key: "branch_approved",
-                label: "Branch Approved",
-                approverName: expense.branch_approver?.full_name,
-                approvedAt: expense.branch_approved_at,
-              },
-              {
-                key: "accounts_approved",
-                label: "Accounts Approved",
-                approverName: expense.accounts_approver?.full_name,
-                approvedAt: expense.accounts_approved_at,
-              },
-              {
-                key: "owner_approved",
-                label: "Owner Approved",
-                approverName: expense.owner_approver?.full_name,
-                approvedAt: expense.owner_approved_at,
-              },
-            ].map(({ key, label, approverName, approvedAt }) => {
-              const idx = stageOrder.indexOf(key);
-              const isApproved = idx <= currentStageIndex && currentStageIndex >= 0;
-              const dateStr = approvedAt
-                ? new Date(approvedAt).toLocaleString("en-IN", {
-                    day: "2-digit", month: "short", year: "numeric",
-                    hour: "2-digit", minute: "2-digit",
-                  })
-                : null;
-              return (
-                <div key={key} className="flex-1 border rounded text-center overflow-hidden" style={{ borderColor: isApproved ? "#1f2937" : "#d1d5db", borderStyle: isApproved ? "solid" : "dashed" }}>
-                  <div className={`py-1.5 px-1 ${isApproved ? "bg-gray-100" : ""}`}>
-                    <span className="text-base font-bold">
-                      {isApproved ? "✓" : ""}
-                    </span>
-                  </div>
-                  <div className="px-1 pb-1.5 space-y-0.5">
-                    <p className="font-semibold text-gray-700 leading-tight" style={{ fontSize: "10px" }}>{label}</p>
-                    {isApproved && approverName && (
-                      <p className="text-gray-800 font-medium leading-tight" style={{ fontSize: "9px" }}>{approverName}</p>
-                    )}
-                    {isApproved && dateStr && (
-                      <p className="text-gray-500 leading-tight" style={{ fontSize: "8px" }}>{dateStr}</p>
-                    )}
-                    {!isApproved && (
-                      <p className="text-gray-400 leading-tight" style={{ fontSize: "9px" }}>Pending</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="flex gap-6 text-sm">
+            <div className="flex-1">
+              <p className="text-xs text-gray-500 mb-0.5">Created By</p>
+              <p className="font-medium">{expense.submitter?.full_name || "—"}</p>
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-gray-500 mb-0.5">Approved By</p>
+              <p className="font-medium">
+                {expense.owner_approver?.full_name ||
+                  expense.accounts_approver?.full_name ||
+                  expense.branch_approver?.full_name ||
+                  "—"}
+              </p>
+            </div>
           </div>
           {expense.approval_status === "paid_direct" && (
             <p className="mt-2 text-xs text-red-600 font-medium">
-              &#9888; This expense was paid directly by cashier without completing the approval workflow.
+              &#9888; Paid directly by cashier without completing the approval workflow.
             </p>
           )}
         </div>
