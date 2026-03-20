@@ -308,7 +308,12 @@ export async function createSalesReceipt(
     }
   }
 
-  revalidatePath("/sales/sales-receipts");
+  // Do NOT revalidatePath("/sales/sales-receipts") here — the caller always
+  // navigates away to /invoices/:id via window.location.href immediately after
+  // this action returns. If the path is revalidated while the POST endpoint URL
+  // is /sales/sales-receipts, Next.js 15 responds with a 303 redirect to that
+  // path, which fires before the client can execute window.location.href and
+  // sends the user back to the list. Same pattern as completePendingRoJob.
   revalidatePath("/invoices");
   revalidatePath("/reports/company-dues");
   if (cashbookId) revalidatePath("/cash/cashbooks");
