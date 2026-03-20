@@ -28,7 +28,28 @@ export default async function NewSalesReceiptPage() {
   const branchId = cs.get("scope_branch_id")?.value || "";
   const fyId = cs.get("scope_financial_year_id")?.value || "";
 
-  if (!companyId || !branchId) redirect("/sales/sales-receipts");
+  // If scope is not set, show a helpful message instead of silently
+  // redirecting. A silent redirect() during soft (Link) navigation shows as
+  // HTTP 200 in Vercel logs and the user never sees the form — they just
+  // end up back on the list page with no explanation.
+  if (!companyId || !branchId) {
+    return (
+      <div className="space-y-6 max-w-3xl">
+        <PageHeader
+          title="New Sales Receipt"
+          description="Create a one-step invoice and full-payment record for immediate sales."
+        />
+        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950 px-4 py-4 text-sm text-amber-800 dark:text-amber-200">
+          <p className="font-semibold mb-1">Company / Branch not selected</p>
+          <p>
+            Please select a <strong>Company</strong> and a specific{" "}
+            <strong>Branch</strong> from the header before creating a sales
+            receipt. You cannot create a receipt without a branch context.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Fetch all required data in parallel.
   // .catch() fallback ensures a DB error never crashes the SSR page —
