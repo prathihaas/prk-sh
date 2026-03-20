@@ -103,7 +103,6 @@ function CompleteRoDialog({
   open,
   onOpenChange,
 }: CompleteDialogProps) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [amount, setAmount] = useState(
     job.estimated_amount ? String(job.estimated_amount) : ""
@@ -174,8 +173,10 @@ function CompleteRoDialog({
         await completePendingRoJob(job.id, receiptResult.invoiceId!);
 
         toast.success("Sales receipt created — issue gate pass to complete delivery.");
-        onOpenChange(false);
-        router.push(`/invoices/${receiptResult.invoiceId}`);
+        // Use hard navigation instead of router.push() — Next.js soft navigation
+        // can be interrupted by revalidatePath() cache updates from createSalesReceipt,
+        // causing the dialog to reset before the push fires.
+        window.location.href = `/invoices/${receiptResult.invoiceId}`;
       } catch (err) {
         toast.error(
           err instanceof Error
