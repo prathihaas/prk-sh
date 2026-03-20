@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -84,7 +83,6 @@ export function SalesReceiptForm({
   insuranceCompanies,
   financeCompanies,
 }: SalesReceiptFormProps) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [showTax, setShowTax] = useState(false);
 
@@ -275,7 +273,9 @@ export function SalesReceiptForm({
         toast.error(result.error);
       } else {
         toast.success("Sales receipt created successfully.");
-        router.push(`/invoices/${result.invoiceId}`);
+        // Hard navigation — cannot be interrupted by React/Next.js revalidation
+        // (createSalesReceipt calls revalidatePath which would abort router.push)
+        window.location.href = `/invoices/${result.invoiceId}`;
       }
     });
   }

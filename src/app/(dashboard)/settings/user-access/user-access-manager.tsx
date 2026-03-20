@@ -249,6 +249,15 @@ export function UserAccessManager({
   }
 
   async function saveTelegramChatId(userId: string) {
+    const rawId = telegramChatIds[userId]?.trim() || "";
+    // Telegram chat IDs are numeric (positive integers or negative for groups)
+    if (rawId && !/^-?\d+$/.test(rawId)) {
+      toast.error(
+        "Telegram Chat ID must be a numeric ID (e.g. 123456789). " +
+        "Ask the user to message @userinfobot on Telegram to get their numeric ID."
+      );
+      return;
+    }
     setSavingTelegramFor(userId);
     try {
       const res = await fetch("/api/settings/telegram-chat-id", {
@@ -256,7 +265,7 @@ export function UserAccessManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: userId,
-          telegram_chat_id: telegramChatIds[userId] || null,
+          telegram_chat_id: rawId || null,
         }),
       });
       const data = await res.json();
@@ -653,9 +662,13 @@ export function UserAccessManager({
         <p className="text-sm text-muted-foreground mb-1">
           Link each manager&apos;s Telegram account so they can receive OTP codes and expense approval requests.
         </p>
-        <p className="text-xs text-muted-foreground mb-4">
-          Ask each user to message <span className="font-mono bg-muted px-1 rounded">@userinfobot</span> on Telegram — it will reply with their numeric Chat ID.
-        </p>
+        <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/30 p-3 mb-4 space-y-1">
+          <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">⚠️ Two steps required before OTP delivery works:</p>
+          <ol className="text-xs text-amber-700 dark:text-amber-300 list-decimal list-inside space-y-0.5">
+            <li>The manager must open Telegram and send <span className="font-mono font-medium">/start</span> to your bot (otherwise Telegram blocks delivery)</li>
+            <li>Enter their numeric Chat ID below — ask them to message <span className="font-mono font-medium">@userinfobot</span> to get it (it&apos;s a number like <span className="font-mono">123456789</span>, not a username)</li>
+          </ol>
+        </div>
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">User Telegram Chat IDs</CardTitle>
