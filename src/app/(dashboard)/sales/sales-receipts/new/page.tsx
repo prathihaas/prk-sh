@@ -30,7 +30,9 @@ export default async function NewSalesReceiptPage() {
 
   if (!companyId || !branchId) redirect("/sales/sales-receipts");
 
-  // Fetch all required data in parallel
+  // Fetch all required data in parallel.
+  // .catch() fallback ensures a DB error never crashes the SSR page —
+  // the form renders with empty lists and shows errors on submit instead.
   const [
     fyResult,
     customers,
@@ -46,10 +48,10 @@ export default async function NewSalesReceiptPage() {
           .eq("company_id", companyId)
           .eq("is_active", true)
           .single(),
-    getCustomersForSelect(companyId),
-    getCashbooks(companyId, branchId, "cash"),
-    getInsuranceCompanies(companyId),
-    getFinanceCompanies(companyId),
+    getCustomersForSelect(companyId).catch(() => [] as Awaited<ReturnType<typeof getCustomersForSelect>>),
+    getCashbooks(companyId, branchId, "cash").catch(() => []),
+    getInsuranceCompanies(companyId).catch(() => [] as string[]),
+    getFinanceCompanies(companyId).catch(() => [] as string[]),
   ]);
 
   const financialYearId = fyResult.data?.id || "";

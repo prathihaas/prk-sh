@@ -221,61 +221,66 @@ export function SalesReceiptForm({
     }
 
     startTransition(async () => {
-      const result = await createSalesReceipt({
-        invoice_type: invoiceType as
-          | "automobile_sale"
-          | "tractor_agri_sale"
-          | "service"
-          | "spares_counter_sale"
-          | "other_income",
-        invoice_date: invoiceDate,
-        dms_invoice_number: dmsInvoiceNumber || undefined,
-        customer_id: customerId || undefined,
-        customer_name: customerName,
-        customer_phone: customerPhone || undefined,
-        customer_gstin: customerGstin || undefined,
-        vehicle_model: vehicleModel || undefined,
-        vehicle_variant: vehicleVariant || undefined,
-        vin_number: vinNumber || undefined,
-        engine_number: engineNumber || undefined,
-        base_amount: base,
-        discount_amount: discount || undefined,
-        tax_cgst: cgst || undefined,
-        tax_sgst: sgst || undefined,
-        tax_igst: igst || undefined,
-        tax_tcs: tcs || undefined,
-        payment_mode: paymentMode as
-          | "cash"
-          | "cheque"
-          | "upi"
-          | "bank_transfer"
-          | "card"
-          | "finance"
-          | "credit",
-        payment_reference: paymentReference || undefined,
-        cashbook_id: cashbookId || undefined,
-        insurance_due: insuranceDue || undefined,
-        insurance_company: insuranceDue ? insuranceCompany : undefined,
-        insurance_amount:
-          insuranceDue && insuranceAmount ? parseFloat(insuranceAmount) : undefined,
-        finance_due: financeDue || undefined,
-        finance_company: financeDue ? financeCompany : undefined,
-        finance_amount:
-          financeDue && financeAmount ? parseFloat(financeAmount) : undefined,
-        notes: notes || undefined,
-        company_id: companyId,
-        branch_id: branchId,
-        financial_year_id: financialYearId,
-        created_by: userId,
-      });
+      try {
+        const result = await createSalesReceipt({
+          invoice_type: invoiceType as
+            | "automobile_sale"
+            | "tractor_agri_sale"
+            | "service"
+            | "spares_counter_sale"
+            | "other_income",
+          invoice_date: invoiceDate,
+          dms_invoice_number: dmsInvoiceNumber || undefined,
+          customer_id: customerId || undefined,
+          customer_name: customerName,
+          customer_phone: customerPhone || undefined,
+          customer_gstin: customerGstin || undefined,
+          vehicle_model: vehicleModel || undefined,
+          vehicle_variant: vehicleVariant || undefined,
+          vin_number: vinNumber || undefined,
+          engine_number: engineNumber || undefined,
+          base_amount: base,
+          discount_amount: discount || undefined,
+          tax_cgst: cgst || undefined,
+          tax_sgst: sgst || undefined,
+          tax_igst: igst || undefined,
+          tax_tcs: tcs || undefined,
+          payment_mode: paymentMode as
+            | "cash"
+            | "cheque"
+            | "upi"
+            | "bank_transfer"
+            | "card"
+            | "finance"
+            | "credit",
+          payment_reference: paymentReference || undefined,
+          cashbook_id: cashbookId || undefined,
+          insurance_due: insuranceDue || undefined,
+          insurance_company: insuranceDue ? insuranceCompany : undefined,
+          insurance_amount:
+            insuranceDue && insuranceAmount ? parseFloat(insuranceAmount) : undefined,
+          finance_due: financeDue || undefined,
+          finance_company: financeDue ? financeCompany : undefined,
+          finance_amount:
+            financeDue && financeAmount ? parseFloat(financeAmount) : undefined,
+          notes: notes || undefined,
+          company_id: companyId,
+          branch_id: branchId,
+          financial_year_id: financialYearId,
+          created_by: userId,
+        });
 
-      if (result.error) {
-        toast.error(result.error);
-      } else {
+        if (!result || result.error) {
+          toast.error(result?.error ?? "Failed to create sales receipt. Please try again.");
+          return;
+        }
+
         toast.success("Sales receipt created successfully.");
         // Hard navigation — cannot be interrupted by React/Next.js revalidation
         // (createSalesReceipt calls revalidatePath which would abort router.push)
         window.location.href = `/invoices/${result.invoiceId}`;
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       }
     });
   }
