@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { salesReceiptSchema, type SalesReceiptFormValues } from "@/lib/validators/sales-receipt";
@@ -308,12 +309,10 @@ export async function createSalesReceipt(
     }
   }
 
-  // Do NOT revalidatePath("/sales/sales-receipts") here — the caller always
-  // navigates away to /invoices/:id via window.location.href immediately after
-  // this action returns. If the path is revalidated while the POST endpoint URL
-  // is /sales/sales-receipts, Next.js 15 responds with a 303 redirect to that
-  // path, which fires before the client can execute window.location.href and
-  // sends the user back to the list. Same pattern as completePendingRoJob.
+  // Do NOT revalidatePath("/sales/sales-receipts") here — the server action
+  // POST endpoint URL is /sales/sales-receipts (Next.js uses the nearest
+  // parent route). Calling revalidatePath on that same path causes Next.js 15
+  // to respond with a 303 redirect back to the list page, aborting navigation.
   revalidatePath("/invoices");
   revalidatePath("/reports/company-dues");
   if (cashbookId) revalidatePath("/cash/cashbooks");
@@ -322,4 +321,31 @@ export async function createSalesReceipt(
     invoiceId: invoice.id,
     cashbookLinked: cashbookTxnId !== null,
   };
+}
+
+/**
+ * Standalone form action for /sales/sales-receipts/new.
+ *
+ * Delegates to createSalesReceipt() and then calls redirect() to navigate the
+ * user to the new invoice. Using redirect() here is idiomatic Next.js 15 —
+ * the framework converts it to a proper navigation response on the client,
+ * avoiding the window.location.href workaround entirely.
+ *
+ * For the Pending R/O flow, use createSalesReceipt() directly — it returns the
+ * invoiceId so the caller can chain completePendingRoJob() before navigating.
+ */
+export async function submitSalesReceiptForm(
+  values: SalesReceiptFormValues & {
+    company_id: string;
+    branch_id: string;
+    created_by: string;
+    financial_year_id: string;
+  }
+): Promise<{ error: string }> {
+  const result = await createSalesReceipt(values);
+  if ("error" in result && result.error) return { error: result.error };
+  if (!("invoiceId" in result) || !result.invoiceId) {
+    return { error: "Failed to create sales receipt. Please try again." };
+  }
+  redirect(`/invoices/${result.invoiceId}`);
 }
