@@ -15,8 +15,8 @@ import { Plus, Eye, CheckCircle2 } from "lucide-react";
 
 function formatType(t: string) {
   return {
-    automobile_sale: "Automobile",
-    tractor_agri_sale: "Tractor/Agri",
+    automobile_sale: "Sales",
+    tractor_agri_sale: "Sales",
     service: "Service",
     other_income: "Other",
   }[t] || t;

@@ -15,8 +15,8 @@ const PAYMENT_MODE_LABELS: Record<string, string> = {
 };
 
 const INVOICE_TYPE_LABELS: Record<string, string> = {
-  automobile_sale: "Vehicle Sale",
-  tractor_agri_sale: "Tractor / Agri Equipment Sale",
+  automobile_sale: "Sales",
+  tractor_agri_sale: "Sales",
   service: "Vehicle Service",
   spares_counter_sale: "Spares Counter Sales",
   other_income: "Other Income",

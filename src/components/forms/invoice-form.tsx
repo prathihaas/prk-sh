@@ -151,8 +151,7 @@ export function InvoiceForm({
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
                     <SelectContent>
-                      <SelectItem value="automobile_sale">Vehicle Sale</SelectItem>
-                      <SelectItem value="tractor_agri_sale">Tractor / Agri Sale</SelectItem>
+                      <SelectItem value="automobile_sale">Sales</SelectItem>
                       <SelectItem value="service">Vehicle Service</SelectItem>
                       <SelectItem value="bank_payment">Bank Payment (Finance)</SelectItem>
                       <SelectItem value="other_income">Other Income</SelectItem>
@@ -284,8 +283,7 @@ export function InvoiceForm({
                 <FormField control={form.control} name="base_amount" render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      {invoiceType === "automobile_sale" ? "Vehicle Sale Value *" :
-                       invoiceType === "tractor_agri_sale" ? "Machine Value *" :
+                      {invoiceType === "automobile_sale" ? "Sale Value *" :
                        invoiceType === "service" ? "Labour Amount *" :
                        "Amount *"}
                     </FormLabel>

@@ -46,8 +46,7 @@ interface SalesReceiptFormProps {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const INVOICE_TYPES = [
-  { value: "automobile_sale", label: "Automobile Sale (Car / SUV)" },
-  { value: "tractor_agri_sale", label: "Tractor / Agri Equipment Sale" },
+  { value: "automobile_sale", label: "Sales" },
   { value: "service", label: "Vehicle Service" },
   { value: "spares_counter_sale", label: "Spares Counter Sales" },
   { value: "other_income", label: "Other Income" },
@@ -134,8 +133,7 @@ export function SalesReceiptForm({
   const [notes, setNotes] = useState("");
 
   // ── Derived booleans ─────────────────────────────────────────────────────
-  const isVehicleType =
-    invoiceType === "automobile_sale" || invoiceType === "tractor_agri_sale";
+  const isVehicleType = invoiceType === "automobile_sale";
   const isServiceType = invoiceType === "service";
   const isSpares = invoiceType === "spares_counter_sale";
 
@@ -227,7 +225,6 @@ export function SalesReceiptForm({
       const result = await submitSalesReceiptForm({
         invoice_type: invoiceType as
           | "automobile_sale"
-          | "tractor_agri_sale"
           | "service"
           | "spares_counter_sale"
           | "other_income",
@@ -401,11 +398,7 @@ export function SalesReceiptForm({
                 <Label htmlFor="vehicle_model">Model</Label>
                 <Input
                   id="vehicle_model"
-                  placeholder={
-                    invoiceType === "tractor_agri_sale"
-                      ? "e.g. Mahindra 575 DI"
-                      : "e.g. Maruti Brezza"
-                  }
+                  placeholder="e.g. Maruti Brezza, Mahindra 575 DI"
                   value={vehicleModel}
                   onChange={(e) => setVehicleModel(e.target.value)}
                 />
