@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { resolveCompanyScope } from "@/lib/auth/helpers";
 import { getApprovalRequests } from "@/lib/queries/approvals";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
@@ -19,8 +20,12 @@ export default async function ApprovalsPage({
   if (!user) redirect("/login");
 
   const cookieStore = await cookies();
-  const companyId = cookieStore.get("scope_company_id")?.value;
   const branchId = cookieStore.get("scope_branch_id")?.value;
+  const companyId = await resolveCompanyScope(
+    supabase,
+    user.id,
+    cookieStore.get("scope_company_id")?.value
+  );
 
   if (!companyId) {
     return (

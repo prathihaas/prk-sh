@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getUserPermissions } from "@/lib/auth/helpers";
+import { getUserPermissions, resolveCompanyScope } from "@/lib/auth/helpers";
 import { getAssets } from "@/lib/queries/assets";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
@@ -24,8 +24,12 @@ export default async function AssetsPage() {
   if (!permissions.has(PERMISSIONS.ASSET_VIEW)) redirect("/dashboard");
 
   const cookieStore = await cookies();
-  const companyId = cookieStore.get("scope_company_id")?.value;
   const branchId = cookieStore.get("scope_branch_id")?.value;
+  const companyId = await resolveCompanyScope(
+    supabase,
+    user.id,
+    cookieStore.get("scope_company_id")?.value
+  );
 
   if (!companyId) {
     return (

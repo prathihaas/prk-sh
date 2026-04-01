@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { getUserPermissions } from "@/lib/auth/helpers";
+import { getUserPermissions, resolveCompanyScope } from "@/lib/auth/helpers";
 import { getCashbooks } from "@/lib/queries/cashbooks";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
@@ -22,8 +22,12 @@ export default async function BankStatementsPage() {
   if (!permissions.has(PERMISSIONS.CASHBOOK_READ)) redirect("/dashboard");
 
   const cookieStore = await cookies();
-  const companyId = cookieStore.get("scope_company_id")?.value;
   // branchId intentionally ignored — bank accounts are company-wide
+  const companyId = await resolveCompanyScope(
+    supabase,
+    user.id,
+    cookieStore.get("scope_company_id")?.value
+  );
 
   if (!companyId) {
     return (

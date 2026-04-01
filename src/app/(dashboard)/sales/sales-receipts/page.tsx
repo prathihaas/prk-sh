@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { getUserPermissions } from "@/lib/auth/helpers";
+import { getUserPermissions, resolveCompanyScope } from "@/lib/auth/helpers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { getSalesReceipts } from "@/lib/queries/sales-receipts";
 import { PageHeader } from "@/components/shared/page-header";
@@ -33,8 +33,12 @@ export default async function SalesReceiptsPage() {
   const canCreate = permissions.has(PERMISSIONS.SALES_RECEIPT_CREATE);
 
   const cs = await cookies();
-  const companyId = cs.get("scope_company_id")?.value || "";
   const branchId = cs.get("scope_branch_id")?.value || null;
+  const companyId = await resolveCompanyScope(
+    supabase,
+    user.id,
+    cs.get("scope_company_id")?.value
+  ) ?? "";
 
   const receipts = companyId ? await getSalesReceipts(companyId, branchId) : [];
   const total = receipts.reduce((sum: number, r: Record<string, unknown>) => sum + Number(r.grand_total), 0);

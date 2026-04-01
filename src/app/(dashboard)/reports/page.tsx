@@ -6,6 +6,7 @@ import {
   getUserPermissions,
   getUserAssignments,
   getAccessibleBranches,
+  resolveCompanyScope,
 } from "@/lib/auth/helpers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
@@ -43,7 +44,11 @@ export default async function ReportsPage({
   if (!hasReportingAccess) redirect("/dashboard");
 
   const cookieStore = await cookies();
-  const companyId = cookieStore.get("scope_company_id")?.value;
+  const companyId = await resolveCompanyScope(
+    supabase,
+    user.id,
+    cookieStore.get("scope_company_id")?.value
+  );
 
   if (!companyId) {
     return (

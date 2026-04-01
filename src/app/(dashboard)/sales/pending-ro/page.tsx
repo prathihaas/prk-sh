@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { getUserPermissions } from "@/lib/auth/helpers";
+import { getUserPermissions, resolveCompanyScope } from "@/lib/auth/helpers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { getPendingRoJobs } from "@/lib/queries/pending-ro";
 import { getCashbooks } from "@/lib/queries/cashbooks";
@@ -23,8 +23,12 @@ export default async function PendingRoPage() {
   const canIssueGatePass = permissions.has(PERMISSIONS.INVOICE_ALLOW_DELIVERY);
 
   const cs = await cookies();
-  const companyId = cs.get("scope_company_id")?.value || "";
   const branchId = cs.get("scope_branch_id")?.value || null;
+  const companyId = await resolveCompanyScope(
+    supabase,
+    user.id,
+    cs.get("scope_company_id")?.value
+  ) ?? "";
   const fyId = cs.get("scope_financial_year_id")?.value || "";
 
   const [jobs, rawCashbooks, fyResult] = await Promise.all([
