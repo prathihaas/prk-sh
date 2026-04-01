@@ -21,8 +21,9 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "des
 export default async function TransferDetailPage({
   params,
 }: {
-  params: { transferId: string };
+  params: Promise<{ transferId: string }>;
 }) {
+  const { transferId } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -32,7 +33,7 @@ export default async function TransferDetailPage({
 
   let transfer;
   try {
-    transfer = await getBranchTransfer(params.transferId);
+    transfer = await getBranchTransfer(transferId);
   } catch {
     notFound();
   }
