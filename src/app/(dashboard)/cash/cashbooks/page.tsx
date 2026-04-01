@@ -5,6 +5,7 @@ import {
   getUserPermissions,
   getUserAssignments,
   getMinHierarchyLevel,
+  resolveCompanyScope,
 } from "@/lib/auth/helpers";
 import { getCashbooksForUser } from "@/lib/queries/cashbooks";
 import { PERMISSIONS } from "@/lib/constants/permissions";
@@ -27,8 +28,14 @@ export default async function CashbooksPage() {
   if (!permissions.has(PERMISSIONS.CASHBOOK_READ)) redirect("/dashboard");
 
   const cookieStore = await cookies();
-  const companyId = cookieStore.get("scope_company_id")?.value;
   const branchId = cookieStore.get("scope_branch_id")?.value;
+  // resolveCompanyScope falls back to first accessible company when no cookie is set
+  const companyId = await resolveCompanyScope(
+    supabase,
+    user.id,
+    cookieStore.get("scope_company_id")?.value,
+    assignments
+  );
 
   if (!companyId) {
     return (

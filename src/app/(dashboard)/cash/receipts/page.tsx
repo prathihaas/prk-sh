@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { getUserPermissions } from "@/lib/auth/helpers";
+import { getUserPermissions, resolveCompanyScope } from "@/lib/auth/helpers";
 import { getReceipts } from "@/lib/queries/receipts";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { HandCoins } from "lucide-react";
@@ -38,8 +38,13 @@ export default async function ReceiptsPage({
   if (!permissions.has(PERMISSIONS.CASHBOOK_READ)) redirect("/dashboard");
 
   const cookieStore = await cookies();
-  const companyId = cookieStore.get("scope_company_id")?.value;
   const branchId = cookieStore.get("scope_branch_id")?.value;
+  // resolveCompanyScope falls back to first accessible company when no cookie is set
+  const companyId = await resolveCompanyScope(
+    supabase,
+    user.id,
+    cookieStore.get("scope_company_id")?.value
+  );
 
   if (!companyId) {
     return (

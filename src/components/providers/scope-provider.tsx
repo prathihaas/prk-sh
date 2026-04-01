@@ -77,6 +77,21 @@ export function ScopeProvider({
     }
   }, []);
 
+  // On mount: sync initial scope state → cookie.
+  // The layout derives initialCompanyId from cookies OR falls back to companies[0].
+  // When it's a fallback (no cookie yet), the cookie is never written because
+  // setCompanyId is only called on explicit changes. This effect writes the cookie
+  // once on mount so that server-rendered pages see it on the next navigation.
+  useEffect(() => {
+    if (companyId) {
+      document.cookie = `scope_company_id=${companyId}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+    }
+    if (branchId) {
+      document.cookie = `scope_branch_id=${branchId}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount to sync initial state → cookie
+
   // Auto-select first company if none selected
   useEffect(() => {
     if (!companyId && companies.length > 0) {

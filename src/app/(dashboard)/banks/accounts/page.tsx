@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { getUserPermissions } from "@/lib/auth/helpers";
+import { getUserPermissions, resolveCompanyScope } from "@/lib/auth/helpers";
 import { getCashbooks } from "@/lib/queries/cashbooks";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
@@ -19,7 +19,13 @@ export default async function BankAccountsPage() {
   if (!permissions.has(PERMISSIONS.CASHBOOK_READ)) redirect("/dashboard");
 
   const cookieStore = await cookies();
-  const companyId = cookieStore.get("scope_company_id")?.value;
+  // resolveCompanyScope falls back to first accessible company when no cookie is set
+  // (handles fresh sessions before ScopeProvider has written the cookie via JS)
+  const companyId = await resolveCompanyScope(
+    supabase,
+    user.id,
+    cookieStore.get("scope_company_id")?.value
+  );
   // Note: branchId is intentionally ignored for bank accounts — banks are company-wide
 
   if (!companyId) {

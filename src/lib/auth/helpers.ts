@@ -222,6 +222,28 @@ export async function getAccessibleCompanies(
 }
 
 /**
+ * Resolve the active company scope from the cookie, with a fallback to the
+ * first accessible company when no cookie is set (e.g. first-ever page load
+ * before ScopeProvider has written the cookie via JS).
+ *
+ * Pass preloadedAssignments if you have already fetched them to avoid a
+ * redundant DB round-trip.
+ */
+export async function resolveCompanyScope(
+  supabase: SupabaseClient,
+  userId: string,
+  cookieValue?: string | null,
+  preloadedAssignments?: UserAssignment[]
+): Promise<string | null> {
+  if (cookieValue) return cookieValue;
+
+  const assignments =
+    preloadedAssignments ?? (await getUserAssignments(supabase, userId));
+  const companies = await getAccessibleCompanies(supabase, assignments);
+  return companies[0]?.id ?? null;
+}
+
+/**
  * Get accessible branches for a selected company
  */
 export async function getAccessibleBranches(
