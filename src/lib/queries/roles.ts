@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function getRoles() {
   const supabase = await createClient();
@@ -52,15 +53,15 @@ export async function getAllPermissions() {
 /**
  * Replace all permissions for a role with the given set.
  * Only callable by Owner / Admin (hierarchy <= 2) — enforced in the UI.
+ * Uses supabaseAdmin (service role) because role_permissions is a system table
+ * with no INSERT/DELETE RLS policies for regular users.
  */
 export async function updateRolePermissions(
   roleId: string,
   permissionIds: string[]
 ) {
-  const supabase = await createClient();
-
-  // Delete existing permissions for this role
-  const { error: deleteError } = await supabase
+  // Delete existing permissions for this role (uses admin client — bypasses RLS)
+  const { error: deleteError } = await supabaseAdmin
     .from("role_permissions")
     .delete()
     .eq("role_id", roleId);
@@ -69,7 +70,7 @@ export async function updateRolePermissions(
 
   // Insert new permissions (if any)
   if (permissionIds.length > 0) {
-    const { error: insertError } = await supabase
+    const { error: insertError } = await supabaseAdmin
       .from("role_permissions")
       .insert(permissionIds.map((pid) => ({ role_id: roleId, permission_id: pid })));
 

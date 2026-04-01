@@ -128,9 +128,9 @@ export async function addUserAssignment(
   branchId: string | null,
   assignedBy: string
 ) {
-  const supabase = await createClient();
-
-  const { error } = await supabase.from("user_assignments").insert({
+  // Use admin client — bypasses RLS so any Owner/Admin can assign any role
+  // (including assigning the Owner role to a new user)
+  const { error } = await supabaseAdmin.from("user_assignments").insert({
     user_id: userId,
     role_id: roleId,
     group_id: groupId,
@@ -151,9 +151,8 @@ export async function addUserAssignment(
 }
 
 export async function revokeUserAssignment(assignmentId: string) {
-  const supabase = await createClient();
-
-  const { error } = await supabase
+  // Use admin client — bypasses RLS for consistent behaviour across all roles
+  const { error } = await supabaseAdmin
     .from("user_assignments")
     .update({
       is_active: false,
