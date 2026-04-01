@@ -5,8 +5,8 @@ export const expenseSchema = z.object({
   expense_date: z.string().min(1, "Date is required"),
   amount: z.number({ error: "Must be a number" }).positive("Amount must be greater than zero"),
   description: z.string().min(1, "Description is required").max(2000),
-  bill_reference: z.string().max(200).optional().or(z.literal("")),
-  notes: z.string().max(2000).optional().or(z.literal("")),
+  bill_reference: z.string().max(200).optional(),
+  notes: z.string().max(2000).optional(),
 });
 
 export type ExpenseFormValues = z.infer<typeof expenseSchema>;
@@ -24,7 +24,7 @@ export const expensePaymentSchema = z.object({
     ["cash", "cheque", "upi", "bank_transfer", "card", "finance", "credit"],
     { error: "Select payment mode" }
   ),
-  notes: z.string().max(1000).optional().or(z.literal("")),
+  notes: z.string().max(1000).optional(),
 });
 
 export type ExpensePaymentFormValues = z.infer<typeof expensePaymentSchema>;

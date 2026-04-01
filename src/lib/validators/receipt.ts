@@ -4,7 +4,7 @@ export const receiptSchema = z.object({
   cashbook_id: z.string().min(1, "Select a cashbook"),
   date: z.string().min(1, "Date is required"),
   // Optional: link to an existing customer record (enables cash-limit tracking)
-  customer_id: z.string().uuid().optional().or(z.literal("")),
+  customer_id: z.string().optional(),
   party_name: z.string().min(1, "Party name is required").max(200),
   amount: z
     .number({ error: "Must be a number" })

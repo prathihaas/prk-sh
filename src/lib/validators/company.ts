@@ -7,7 +7,7 @@ export const companySchema = z.object({
     .min(1, "Company code is required")
     .max(20)
     .regex(/^[A-Za-z0-9_-]+$/, "Code must be alphanumeric (hyphens and underscores allowed)"),
-  legal_name: z.string().max(300).optional().or(z.literal("")),
+  legal_name: z.string().max(300).optional(),
   gstin: z
     .string()
     .max(15)
@@ -26,11 +26,11 @@ export const companySchema = z.object({
       (val) => !val || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(val),
       { message: "Invalid PAN format" }
     ),
-  address_line1: z.string().max(200).optional().or(z.literal("")),
-  address_line2: z.string().max(200).optional().or(z.literal("")),
-  city: z.string().max(100).optional().or(z.literal("")),
-  state: z.string().max(100).optional().or(z.literal("")),
-  pincode: z.string().max(10).optional().or(z.literal("")),
+  address_line1: z.string().max(200).optional(),
+  address_line2: z.string().max(200).optional(),
+  city: z.string().max(100).optional(),
+  state: z.string().max(100).optional(),
+  pincode: z.string().max(10).optional(),
   is_active: z.boolean(),
 });
 

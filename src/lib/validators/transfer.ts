@@ -4,11 +4,11 @@ export const transferItemSchema = z.object({
   item_type: z.enum(["vehicle", "spare_parts", "cash", "document", "other"]),
   description: z.string().min(1, "Description required"),
   quantity: z.number().positive("Must be > 0"),
-  unit: z.string().max(20).optional().or(z.literal("")),
+  unit: z.string().max(20).optional(),
   unit_value: z.number().min(0).default(0),
-  vin_chassis_number: z.string().max(50).optional().or(z.literal("")),
-  engine_number: z.string().max(50).optional().or(z.literal("")),
-  notes: z.string().max(500).optional().or(z.literal("")),
+  vin_chassis_number: z.string().max(50).optional(),
+  engine_number: z.string().max(50).optional(),
+  notes: z.string().max(500).optional(),
 });
 
 export const branchTransferSchema = z
@@ -16,10 +16,10 @@ export const branchTransferSchema = z
     transfer_type: z.enum(["inter_branch", "inter_company"]),
     to_company_id: z.string().min(1, "Select destination company"),
     // Optional by default — required only for inter_branch (validated below with .superRefine)
-    to_branch_id: z.string().optional().or(z.literal("")),
+    to_branch_id: z.string().optional(),
     transfer_date: z.string().min(1, "Transfer date required"),
     // DB column is "notes" (not narration)
-    notes: z.string().max(1000).optional().or(z.literal("")),
+    notes: z.string().max(1000).optional(),
     items: z.array(transferItemSchema).min(1, "Add at least one item"),
   })
   .superRefine((data, ctx) => {

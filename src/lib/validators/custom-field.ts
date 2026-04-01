@@ -10,7 +10,7 @@ export const customFieldSchema = z.object({
   field_type: z.enum(["text", "number", "dropdown", "date", "boolean"], {
     error: "Select a field type",
   }),
-  dropdown_options: z.string().optional().or(z.literal("")),
+  dropdown_options: z.string().optional(),
   is_mandatory: z.boolean(),
   display_order: z
     .number({ error: "Required" })

@@ -9,9 +9,9 @@ export const customerSchema = z.object({
     .or(z.literal("")),
   email: z.string().email("Enter a valid email address").optional().or(z.literal("")),
   customer_type: z.enum(["individual", "business"]).default("individual"),
-  address: z.string().optional().or(z.literal("")),
-  city: z.string().optional().or(z.literal("")),
-  state: z.string().optional().or(z.literal("")),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
   pincode: z
     .string()
     .regex(/^\d{6}$/, "Pincode must be 6 digits")
@@ -30,7 +30,7 @@ export const customerSchema = z.object({
     .regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Enter a valid PAN number")
     .optional()
     .or(z.literal("")),
-  notes: z.string().optional().or(z.literal("")),
+  notes: z.string().optional(),
   is_active: z.boolean().default(true),
 });
 

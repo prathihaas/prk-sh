@@ -7,11 +7,11 @@ export const branchSchema = z.object({
     .min(1, "Branch code is required")
     .max(20)
     .regex(/^[A-Za-z0-9_-]+$/, "Code must be alphanumeric"),
-  address_line1: z.string().max(200).optional().or(z.literal("")),
-  address_line2: z.string().max(200).optional().or(z.literal("")),
-  city: z.string().max(100).optional().or(z.literal("")),
-  state: z.string().max(100).optional().or(z.literal("")),
-  pincode: z.string().max(10).optional().or(z.literal("")),
+  address_line1: z.string().max(200).optional(),
+  address_line2: z.string().max(200).optional(),
+  city: z.string().max(100).optional(),
+  state: z.string().max(100).optional(),
+  pincode: z.string().max(10).optional(),
   is_active: z.boolean(),
 });
 

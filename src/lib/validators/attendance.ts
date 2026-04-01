@@ -13,10 +13,10 @@ export const attendanceRecordSchema = z.object({
   status: z.enum(["present", "absent", "half_day", "leave", "holiday", "weekly_off"], {
     error: "Select a status",
   }),
-  check_in_time: z.string().optional().or(z.literal("")),
-  check_out_time: z.string().optional().or(z.literal("")),
+  check_in_time: z.string().optional(),
+  check_out_time: z.string().optional(),
   is_late: z.boolean().default(false),
-  remarks: z.string().max(500).optional().or(z.literal("")),
+  remarks: z.string().max(500).optional(),
 });
 
 export type AttendanceRecordFormValues = z.infer<typeof attendanceRecordSchema>;
