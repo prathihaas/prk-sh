@@ -128,8 +128,52 @@ export async function addUserAssignment(
   branchId: string | null,
   assignedBy: string
 ) {
-  // Use admin client — bypasses RLS so any Owner/Admin can assign any role
-  // (including assigning the Owner role to a new user)
+  // The unique constraint on user_assignments does NOT filter on is_active,
+  // so a revoked assignment blocks a new INSERT with the same role+scope.
+  // Fix: look for an existing (possibly revoked) assignment first and
+  // reactivate it rather than inserting a duplicate.
+  let existingQuery = supabaseAdmin
+    .from("user_assignments")
+    .select("id, is_active")
+    .eq("user_id", userId)
+    .eq("role_id", roleId)
+    .eq("group_id", groupId);
+
+  // NULL-safe comparison: use .is() for null values, .eq() for real values
+  if (companyId === null) {
+    existingQuery = existingQuery.is("company_id", null);
+  } else {
+    existingQuery = existingQuery.eq("company_id", companyId);
+  }
+  if (branchId === null) {
+    existingQuery = existingQuery.is("branch_id", null);
+  } else {
+    existingQuery = existingQuery.eq("branch_id", branchId);
+  }
+
+  const { data: existing } = await existingQuery.maybeSingle();
+
+  if (existing) {
+    if (existing.is_active) {
+      return { error: "This role+scope assignment already exists for this user." };
+    }
+    // Reactivate the previously revoked assignment
+    const { error } = await supabaseAdmin
+      .from("user_assignments")
+      .update({
+        is_active: true,
+        revoked_at: null,
+        assigned_by: assignedBy,
+        assigned_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+
+    if (error) return { error: error.message };
+    revalidatePath("/admin/users");
+    return { success: true };
+  }
+
+  // No existing row — fresh insert
   const { error } = await supabaseAdmin.from("user_assignments").insert({
     user_id: userId,
     role_id: roleId,
