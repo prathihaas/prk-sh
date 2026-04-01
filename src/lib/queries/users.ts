@@ -65,9 +65,8 @@ export async function createUser(
 
   const userId = authUser.user.id;
 
-  // 2. Create user profile (via server client — RLS applies)
-  const supabase = await createClient();
-  const { error: profileError } = await supabase
+  // 2. Create user profile (via admin client — bypasses RLS, no INSERT policy on user_profiles)
+  const { error: profileError } = await supabaseAdmin
     .from("user_profiles")
     .insert({
       id: userId,
@@ -82,8 +81,8 @@ export async function createUser(
     return { error: profileError.message };
   }
 
-  // 3. Create user assignment
-  const { error: assignError } = await supabase
+  // 3. Create user assignment (via admin client — bypasses RLS)
+  const { error: assignError } = await supabaseAdmin
     .from("user_assignments")
     .insert({
       user_id: userId,
