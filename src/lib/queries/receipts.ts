@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { receiptSchema, type ReceiptFormValues } from "@/lib/validators/receipt";
 import { getCashLimits } from "@/lib/queries/company-configs";
+import { resolveOrCreateCashbookDay } from "@/lib/queries/cashbook-days";
 
 /**
  * Get all receipt-type transactions across all cashbooks for a company/branch scope.
@@ -137,21 +138,10 @@ export async function createReceipt(
     }
   }
 
-  // Find an open/reopened day for this cashbook + date
-  const { data: day, error: dayError } = await supabase
-    .from("cashbook_days")
-    .select("id, status")
-    .eq("cashbook_id", validated.cashbook_id)
-    .eq("date", validated.date)
-    .in("status", ["open", "reopened"])
-    .single();
-
-  if (dayError || !day) {
-    return {
-      error:
-        "No open cashbook day found for this date. The day may be closed or does not exist yet. Please open the day first from the Cashbooks section.",
-    };
-  }
+  // Resolve cashbook day — auto-creates for bank accounts, requires open day for cash
+  const dayResult = await resolveOrCreateCashbookDay(validated.cashbook_id, validated.date);
+  if ("error" in dayResult) return dayResult;
+  const day = dayResult.day;
 
   // Insert the receipt transaction, returning the ID for OTP approval flow
   const { data: inserted, error } = await supabase

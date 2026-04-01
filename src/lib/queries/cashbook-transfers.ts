@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { resolveOrCreateCashbookDay } from "@/lib/queries/cashbook-days";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -127,37 +128,21 @@ export async function approveCashbookTransfer(
     return { error: `Transfer is already ${transfer.status}.` };
   }
 
-  // 2. Find open cashbook days for BOTH cashbooks on the transfer date
+  // 2. Resolve cashbook days for BOTH cashbooks — auto-creates for bank accounts
   const [fromDayResult, toDayResult] = await Promise.all([
-    supabase
-      .from("cashbook_days")
-      .select("id")
-      .eq("cashbook_id", transfer.from_cashbook_id)
-      .eq("date", transfer.transfer_date)
-      .in("status", ["open", "reopened"])
-      .single(),
-    supabase
-      .from("cashbook_days")
-      .select("id")
-      .eq("cashbook_id", transfer.to_cashbook_id)
-      .eq("date", transfer.transfer_date)
-      .in("status", ["open", "reopened"])
-      .single(),
+    resolveOrCreateCashbookDay(transfer.from_cashbook_id, transfer.transfer_date),
+    resolveOrCreateCashbookDay(transfer.to_cashbook_id, transfer.transfer_date),
   ]);
 
-  if (fromDayResult.error || !fromDayResult.data) {
-    return {
-      error: `No open day found for the source cashbook on ${transfer.transfer_date}. Please open that cashbook day first.`,
-    };
+  if ("error" in fromDayResult) {
+    return { error: `Source cashbook: ${fromDayResult.error}` };
   }
-  if (toDayResult.error || !toDayResult.data) {
-    return {
-      error: `No open day found for the destination cashbook on ${transfer.transfer_date}. Please open that cashbook day first.`,
-    };
+  if ("error" in toDayResult) {
+    return { error: `Destination cashbook: ${toDayResult.error}` };
   }
 
-  const fromDayId = fromDayResult.data.id;
-  const toDayId = toDayResult.data.id;
+  const fromDayId = fromDayResult.day.id;
+  const toDayId = toDayResult.day.id;
   const narration = `Cashbook Transfer: ${transfer.description}`;
 
   // 3. Create DEBIT transaction in the source cashbook

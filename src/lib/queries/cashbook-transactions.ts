@@ -6,6 +6,7 @@ import {
   cashbookTransactionSchema,
   type CashbookTransactionFormValues,
 } from "@/lib/validators/cashbook-transaction";
+import { resolveOrCreateCashbookDay } from "@/lib/queries/cashbook-days";
 
 export async function getTransactions(cashbookDayId: string) {
   const supabase = await createClient();
@@ -106,20 +107,10 @@ export async function createTransactionForImport(
 ) {
   const supabase = await createClient();
 
-  // Find or error on cashbook day
-  const { data: day, error: dayError } = await supabase
-    .from("cashbook_days")
-    .select("id, status")
-    .eq("cashbook_id", values.cashbook_id)
-    .eq("date", values.date)
-    .in("status", ["open", "reopened"])
-    .single();
-
-  if (dayError || !day) {
-    return {
-      error: `No open cashbook day found for date ${values.date}. Please open the day first from the Cashbooks section.`,
-    };
-  }
+  // Resolve cashbook day — auto-creates for bank accounts, requires open day for cash
+  const dayResult = await resolveOrCreateCashbookDay(values.cashbook_id, values.date);
+  if ("error" in dayResult) return dayResult;
+  const day = dayResult.day;
 
   const { error } = await supabase.from("cashbook_transactions").insert({
     cashbook_id: values.cashbook_id,

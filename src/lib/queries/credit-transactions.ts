@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { resolveOrCreateCashbookDay } from "@/lib/queries/cashbook-days";
 
 export interface CreditTransaction {
   id: string;
@@ -161,20 +162,10 @@ export async function settleCreditInvoicePayment(
 
   const fyId = financialYearId ?? inv?.financial_year_id ?? null;
 
-  // Look up open cashbook day for the given date + cashbook
-  const { data: day } = await supabase
-    .from("cashbook_days")
-    .select("id")
-    .eq("cashbook_id", cashbookId)
-    .eq("date", paymentDate)
-    .in("status", ["open", "reopened"])
-    .single();
-
-  if (!day) {
-    return {
-      error: `No open cashbook day found for ${paymentDate}. Please open the day in the Cashbooks section first.`,
-    };
-  }
+  // Resolve cashbook day — auto-creates for bank accounts, requires open day for cash
+  const dayResult = await resolveOrCreateCashbookDay(cashbookId, paymentDate);
+  if ("error" in dayResult) return dayResult;
+  const day = dayResult.day;
 
   // Create a cashbook transaction for the payment received
   const txnNarration = narration ||

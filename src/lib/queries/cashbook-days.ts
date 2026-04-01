@@ -2,6 +2,96 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
+/**
+ * Resolve a cashbook day for a transaction, handling bank vs cash cashbooks differently:
+ *
+ * - BANK cashbooks: auto-create the day if it doesn't exist. Banks don't follow
+ *   the manual open/close day workflow — transactions can happen any time.
+ *
+ * - CASH / PETTY cashbooks: require an existing open or reopened day. Returns
+ *   an error if no open day exists (forces the user to open the day first).
+ *
+ * Returns { day: { id } } on success, or { error: string } on failure.
+ */
+export async function resolveOrCreateCashbookDay(
+  cashbookId: string,
+  date: string
+): Promise<{ day: { id: string } } | { error: string }> {
+  const supabase = await createClient();
+
+  // Look up the cashbook type so we can decide which path to take
+  const { data: cashbook, error: cashbookError } = await supabase
+    .from("cashbooks")
+    .select("id, type, company_id, branch_id")
+    .eq("id", cashbookId)
+    .single();
+
+  if (cashbookError || !cashbook) {
+    return { error: "Cashbook not found." };
+  }
+
+  if (cashbook.type === "bank") {
+    // Bank accounts: find or auto-create the day (no manual open required)
+    const { data: existingDay } = await supabaseAdmin
+      .from("cashbook_days")
+      .select("id")
+      .eq("cashbook_id", cashbookId)
+      .eq("date", date)
+      .maybeSingle();
+
+    if (existingDay) return { day: existingDay };
+
+    // Auto-create a day for this bank account + date
+    const { data: newDay, error: createError } = await supabaseAdmin
+      .from("cashbook_days")
+      .insert({
+        cashbook_id: cashbook.id,
+        company_id: cashbook.company_id,
+        branch_id: cashbook.branch_id,
+        date,
+        opening_balance: 0,
+        status: "open",
+      })
+      .select("id")
+      .single();
+
+    if (createError) {
+      if (createError.code === "23505") {
+        // Race condition: another request created the same day simultaneously — re-fetch
+        const { data: racedDay } = await supabaseAdmin
+          .from("cashbook_days")
+          .select("id")
+          .eq("cashbook_id", cashbookId)
+          .eq("date", date)
+          .single();
+        if (racedDay) return { day: racedDay };
+      }
+      return { error: `Could not initialise bank account day: ${createError.message}` };
+    }
+
+    return { day: newDay };
+  }
+
+  // Cash / petty cashbooks: require a manually opened day
+  const { data: openDay, error: dayError } = await supabase
+    .from("cashbook_days")
+    .select("id")
+    .eq("cashbook_id", cashbookId)
+    .eq("date", date)
+    .in("status", ["open", "reopened"])
+    .single();
+
+  if (dayError || !openDay) {
+    return {
+      error:
+        "No open cashbook day found for this date. The day may be closed or does not exist yet. Please open the day first from the Cashbooks section.",
+    };
+  }
+
+  return { day: openDay };
+}
 
 export async function getCashbookDays(cashbookId: string) {
   const supabase = await createClient();

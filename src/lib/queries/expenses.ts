@@ -8,6 +8,7 @@ import {
   expensePaymentSchema,
   type ExpensePaymentFormValues,
 } from "@/lib/validators/expense";
+import { resolveOrCreateCashbookDay } from "@/lib/queries/cashbook-days";
 import { getCashLimits, getTelegramBotToken, getTelegramExpenseApprovers } from "@/lib/queries/company-configs";
 import { sendExpenseApprovalRequest } from "@/lib/utils/telegram-notify";
 
@@ -393,21 +394,10 @@ export async function payExpense(
     }
   }
 
-  // Find an open/reopened day for this cashbook + payment date
-  const { data: day, error: dayError } = await supabase
-    .from("cashbook_days")
-    .select("id, status")
-    .eq("cashbook_id", validated.cashbook_id)
-    .eq("date", validated.payment_date)
-    .in("status", ["open", "reopened"])
-    .single();
-
-  if (dayError || !day) {
-    return {
-      error:
-        "No open cashbook day found for this payment date. The day may be closed or does not exist yet. Please open the day first from the Cashbooks section.",
-    };
-  }
+  // Resolve cashbook day — auto-creates for bank accounts, requires open day for cash
+  const dayResult = await resolveOrCreateCashbookDay(validated.cashbook_id, validated.payment_date);
+  if ("error" in dayResult) return dayResult;
+  const day = dayResult.day;
 
   // Create a payment transaction in the cashbook
   const categoryName = expense.category?.name || "Expense";
