@@ -14,6 +14,19 @@ import { Separator } from "@/components/ui/separator";
 import { DeliveryChallanSection } from "./delivery-challan-section";
 import { PrintSalesReceipt } from "@/components/shared/print-sales-receipt";
 
+function formatJsonbAddress(address: unknown): string | null {
+  if (!address) return null;
+  if (typeof address === "string") return address.trim() || null;
+  if (typeof address === "object") {
+    const a = address as Record<string, unknown>;
+    return [a.line1, a.line2, a.city, a.state, a.pincode]
+      .filter((v) => typeof v === "string" && (v as string).trim())
+      .map((v) => (v as string).trim())
+      .join(", ") || null;
+  }
+  return null;
+}
+
 export default async function InvoiceDetailPage({
   params,
 }: {
@@ -47,8 +60,12 @@ export default async function InvoiceDetailPage({
       .eq("id", invoice.branch_id)
       .single(),
   ]);
-  const company = companyResult.data ?? null;
-  const branch = branchResult.data ?? null;
+  const company = companyResult.data
+    ? { ...companyResult.data, address: formatJsonbAddress(companyResult.data.address) }
+    : null;
+  const branch = branchResult.data
+    ? { ...branchResult.data, address: formatJsonbAddress(branchResult.data.address) }
+    : null;
 
   return (
     <div className="space-y-6">
