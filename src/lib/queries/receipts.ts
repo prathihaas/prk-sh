@@ -44,6 +44,22 @@ export async function getReceipts(
 }
 
 /**
+ * Convert a JSONB address object (or string/null) to a readable single-line string.
+ * Handles: null, empty object {}, string, or object like { line1, line2, city, state, pincode }.
+ */
+function formatAddress(address: unknown): string | null {
+  if (!address) return null;
+  if (typeof address === "string") return address.trim() || null;
+  if (typeof address === "object") {
+    const parts = Object.values(address as Record<string, unknown>)
+      .filter((v) => typeof v === "string" && (v as string).trim())
+      .map((v) => (v as string).trim());
+    return parts.length > 0 ? parts.join(", ") : null;
+  }
+  return null;
+}
+
+/**
  * Get a single receipt with full context (transaction + cashbook + company + branch)
  * for the printable receipt view.
  */
@@ -67,18 +83,33 @@ export async function getReceiptWithContext(id: string) {
     .single();
 
   // Get the company — explicitly select fields so PrintReceipt gets gstin + logo_url
-  const { data: company } = await supabase
+  const { data: companyRaw } = await supabase
     .from("companies")
     .select("id, name, gstin, address, logo_url")
     .eq("id", transaction.company_id)
     .single();
 
   // Get the branch
-  const { data: branch } = await supabase
+  const { data: branchRaw } = await supabase
     .from("branches")
-    .select("*")
+    .select("id, name, address")
     .eq("id", transaction.branch_id)
     .single();
+
+  // Flatten JSONB address fields to strings so PrintReceipt receives safe string | null values
+  const company = companyRaw
+    ? {
+        ...companyRaw,
+        address: formatAddress(companyRaw.address),
+      }
+    : null;
+
+  const branch = branchRaw
+    ? {
+        ...branchRaw,
+        address: formatAddress(branchRaw.address),
+      }
+    : null;
 
   return { transaction, cashbook, company, branch };
 }
@@ -117,15 +148,18 @@ export async function createReceipt(
     const limits = await getCashLimits(values.company_id);
 
     // Sum all non-voided cash receipts for this customer this financial year
-    const { data: existingTxns } = await supabase
+    let cashQuery = supabase
       .from("cashbook_transactions")
       .select("amount")
       .eq("company_id", values.company_id)
       .eq("customer_id", customerId)
       .eq("txn_type", "receipt")
       .eq("payment_mode", "cash")
-      .eq("is_voided", false)
-      .eq("financial_year_id", values.financial_year_id || "");
+      .eq("is_voided", false);
+    if (values.financial_year_id) {
+      cashQuery = cashQuery.eq("financial_year_id", values.financial_year_id);
+    }
+    const { data: existingTxns } = await cashQuery;
 
     const existingCash = (existingTxns || []).reduce((sum: number, t: { amount: unknown }) => sum + Number(t.amount), 0);
     const newTotal = existingCash + Number(validated.amount);
