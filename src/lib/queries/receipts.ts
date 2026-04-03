@@ -132,6 +132,10 @@ export async function createReceipt(
   const validated = receiptSchema.parse(values);
   const supabase = await createClient();
 
+  // Guard required scope IDs — empty string is not a valid UUID
+  if (!values.company_id) return { error: "No company selected. Please select a company in the header." };
+  if (!values.branch_id) return { error: "No branch selected. Please select a branch in the header." };
+
   // Backdate protection: if date is before today and user doesn't have backdate permission, block it
   const today = new Date().toISOString().split("T")[0];
   if (validated.date < today && !values.allow_backdate) {

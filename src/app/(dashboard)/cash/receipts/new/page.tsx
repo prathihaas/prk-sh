@@ -30,13 +30,13 @@ export default async function NewReceiptPage() {
   const companyId = cookieStore.get("scope_company_id")?.value;
   const branchId = cookieStore.get("scope_branch_id")?.value;
 
-  if (!companyId) {
+  if (!companyId || !branchId) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="New Receipt"
-          description="Select a company from the header first"
-        />
+        <PageHeader title="New Receipt" description="Select a company and branch from the header first" />
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          <strong>Company / Branch not selected.</strong> Please select both a company and a specific branch from the header before creating a receipt.
+        </div>
       </div>
     );
   }
