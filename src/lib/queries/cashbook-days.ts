@@ -43,6 +43,18 @@ export async function resolveOrCreateCashbookDay(
 
     if (existingDay) return { day: existingDay };
 
+    // Get the latest day's balance for proper chaining
+    const { data: prevDay } = await supabaseAdmin
+      .from("cashbook_days")
+      .select("system_closing, opening_balance")
+      .eq("cashbook_id", cashbookId)
+      .order("date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const bankOpeningBalance = prevDay
+      ? Number(prevDay.system_closing ?? prevDay.opening_balance ?? 0)
+      : Number(cashbook.opening_balance ?? 0);
+
     // Auto-create a day for this bank account + date
     const { data: newDay, error: createError } = await supabaseAdmin
       .from("cashbook_days")
@@ -51,7 +63,7 @@ export async function resolveOrCreateCashbookDay(
         company_id: cashbook.company_id,
         branch_id: cashbook.branch_id,
         date,
-        opening_balance: 0,
+        opening_balance: bankOpeningBalance,
         status: "open",
       })
       .select("id")
@@ -125,20 +137,23 @@ export async function openCashbookDay(
 ) {
   const supabase = await createClient();
 
-  // Get the latest day's system_closing as opening balance, or the cashbook opening_balance
+  // Get the latest day's balance to chain into this new day.
+  // Use system_closing if set (day had transactions), else opening_balance
+  // (day was opened but no transactions yet — balance unchanged).
   const { data: latestDay } = await supabase
     .from("cashbook_days")
-    .select("system_closing")
+    .select("system_closing, opening_balance")
     .eq("cashbook_id", cashbookId)
     .order("date", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   let openingBalance = 0;
-  if (latestDay?.system_closing !== null && latestDay?.system_closing !== undefined) {
-    openingBalance = Number(latestDay.system_closing);
+  if (latestDay) {
+    // Prefer system_closing; fall back to opening_balance if no transactions on that day
+    openingBalance = Number(latestDay.system_closing ?? latestDay.opening_balance ?? 0);
   } else {
-    // First day — use cashbook opening_balance
+    // First-ever day — use the cashbook's configured opening balance
     const { data: cashbook } = await supabase
       .from("cashbooks")
       .select("opening_balance")

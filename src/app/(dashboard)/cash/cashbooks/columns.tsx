@@ -23,6 +23,7 @@ export type CashbookRow = {
   name: string;
   type: string;
   opening_balance: number;
+  current_balance?: number;
   is_active: boolean;
 };
 
@@ -96,12 +97,23 @@ export const columns: ColumnDef<CashbookRow>[] = [
     cell: ({ row }) => <StatusBadge status={row.getValue("type")} />,
   },
   {
+    accessorKey: "current_balance",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Current Balance" />
+    ),
+    cell: ({ row }) => (
+      <span className="tabular-nums font-semibold">
+        {formatINR(row.original.current_balance ?? row.original.opening_balance)}
+      </span>
+    ),
+  },
+  {
     accessorKey: "opening_balance",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Opening Balance" />
     ),
     cell: ({ row }) => (
-      <span className="tabular-nums">
+      <span className="tabular-nums text-muted-foreground">
         {formatINR(row.getValue("opening_balance"))}
       </span>
     ),

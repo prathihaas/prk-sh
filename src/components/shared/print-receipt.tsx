@@ -9,10 +9,8 @@ interface PrintReceiptProps {
   transaction: {
     id: string;
     receipt_number: string;
-    voucher_number: string | null;
     txn_type: string;
     amount: number;
-    running_balance: number;
     party_name: string | null;
     narration: string;
     payment_mode: string;
@@ -32,7 +30,6 @@ interface PrintReceiptProps {
   branch: {
     name: string;
     address: string | null;
-    phone: string | null;
   } | null;
   cashbook: {
     name: string;
@@ -146,9 +143,6 @@ export function PrintReceipt({
           {branch?.address && (
             <p className="text-xs text-gray-600">{branch.address}</p>
           )}
-          {branch?.phone && (
-            <p className="text-xs text-gray-600">Tel: {branch.phone}</p>
-          )}
           {company?.gstin && (
             <p className="text-sm font-medium mt-1">
               GSTIN: {company.gstin}
@@ -164,14 +158,6 @@ export function PrintReceipt({
                 <span className="font-semibold">Receipt No:</span>{" "}
                 <span className="font-mono">{transaction.receipt_number}</span>
               </p>
-              {transaction.voucher_number && (
-                <p className="text-sm">
-                  <span className="font-semibold">Voucher No:</span>{" "}
-                  <span className="font-mono">
-                    {transaction.voucher_number}
-                  </span>
-                </p>
-              )}
             </div>
             <div className="text-right">
               <p className="text-sm">
@@ -224,16 +210,6 @@ export function PrintReceipt({
             <p className="text-sm border-b border-dashed border-gray-400 pb-1 mt-1">
               {transaction.narration}
             </p>
-          </div>
-        </div>
-
-        {/* ── Balance ── */}
-        <div className="border-t-2 border-b-2 border-gray-800 print-border px-6 py-2">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-semibold">Running Balance:</span>
-            <span className="text-base font-bold tabular-nums">
-              {formatINR(transaction.running_balance)}
-            </span>
           </div>
         </div>
 

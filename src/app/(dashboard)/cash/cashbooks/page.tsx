@@ -7,7 +7,7 @@ import {
   getMinHierarchyLevel,
   resolveCompanyScope,
 } from "@/lib/auth/helpers";
-import { getCashbooksForUser } from "@/lib/queries/cashbooks";
+import { getCashbooksForUser, enrichWithCurrentBalance } from "@/lib/queries/cashbooks";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
@@ -51,12 +51,15 @@ export default async function CashbooksPage() {
   const hierarchyLevel = getMinHierarchyLevel(assignments);
 
   // Cashiers see only their assigned cashbook; managers+ see all
-  const cashbooks = await getCashbooksForUser(
+  const rawCashbooks = await getCashbooksForUser(
     companyId,
     branchId,
     user.id,
     hierarchyLevel,
     "cash"
+  );
+  const cashbooks = await enrichWithCurrentBalance(
+    rawCashbooks as { id: string; name: string; type: string; opening_balance: number; is_active: boolean }[]
   );
 
   const isCashierLevel = hierarchyLevel >= 5;

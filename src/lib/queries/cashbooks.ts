@@ -155,6 +155,29 @@ export async function getCashbooksForUser(
 }
 
 /**
+ * Enrich cashbook rows with current_balance from the latest cashbook_day.
+ * Falls back to opening_balance if no days exist.
+ */
+export async function enrichWithCurrentBalance<
+  T extends { id: string; opening_balance: number }
+>(cashbooks: T[]): Promise<(T & { current_balance: number })[]> {
+  if (cashbooks.length === 0) return [];
+  const supabase = await createClient();
+  const ids = cashbooks.map((c) => c.id);
+  const { data } = await supabase.rpc("get_cashbook_current_balances", {
+    p_cashbook_ids: ids,
+  });
+  const balanceMap = new Map<string, number>();
+  for (const row of data || []) {
+    balanceMap.set(row.cashbook_id, Number(row.current_balance));
+  }
+  return cashbooks.map((c) => ({
+    ...c,
+    current_balance: balanceMap.get(c.id) ?? Number(c.opening_balance),
+  }));
+}
+
+/**
  * Get active cashbooks (for dropdown in receipt/payment forms).
  * Filters to active only. Uses getCashbooksForUser so cashiers only see their book.
  */

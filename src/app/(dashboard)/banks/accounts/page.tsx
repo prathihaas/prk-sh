@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPermissions, resolveCompanyScope } from "@/lib/auth/helpers";
-import { getCashbooks } from "@/lib/queries/cashbooks";
+import { getCashbooks, enrichWithCurrentBalance } from "@/lib/queries/cashbooks";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
@@ -41,7 +41,10 @@ export default async function BankAccountsPage() {
 
   // Bank accounts are COMPANY-WIDE — all branches in the company share the same banks
   // Do NOT filter by branch (pass null explicitly)
-  const bankAccounts = await getCashbooks(companyId, null, "bank");
+  const rawBankAccounts = await getCashbooks(companyId, null, "bank");
+  const bankAccounts = await enrichWithCurrentBalance(
+    rawBankAccounts as { id: string; name: string; type: string; opening_balance: number; is_active: boolean }[]
+  );
 
   return (
     <div className="space-y-6">
