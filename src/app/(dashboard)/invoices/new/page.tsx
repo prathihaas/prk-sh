@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserPermissions } from "@/lib/auth/helpers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { getCustomersForSelect } from "@/lib/queries/customers";
+import { getCurrentFinancialYear } from "@/lib/queries/financial-years";
 import { InvoiceForm } from "@/components/forms/invoice-form";
 
 export default async function NewInvoicePage() {
@@ -20,13 +21,8 @@ export default async function NewInvoicePage() {
 
   if (!companyId || !branchId) redirect("/invoices");
 
-  const [{ data: fy }, customers] = await Promise.all([
-    supabase
-      .from("financial_years")
-      .select("id")
-      .eq("company_id", companyId)
-      .eq("is_active", true)
-      .single(),
+  const [fy, customers] = await Promise.all([
+    getCurrentFinancialYear(companyId),
     getCustomersForSelect(companyId),
   ]);
 

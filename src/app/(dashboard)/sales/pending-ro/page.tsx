@@ -6,6 +6,7 @@ import { getUserPermissions, resolveCompanyScope } from "@/lib/auth/helpers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { getPendingRoJobs } from "@/lib/queries/pending-ro";
 import { getCashbooks } from "@/lib/queries/cashbooks";
+import { getCurrentFinancialYear } from "@/lib/queries/financial-years";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -39,12 +40,7 @@ export default async function PendingRoPage() {
     fyId
       ? Promise.resolve({ data: { id: fyId } })
       : companyId
-        ? supabase
-            .from("financial_years")
-            .select("id")
-            .eq("company_id", companyId)
-            .eq("is_active", true)
-            .single()
+        ? getCurrentFinancialYear(companyId).then((fy) => ({ data: fy }))
         : Promise.resolve({ data: null }),
   ]);
 

@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/helpers";
 import { getExpense } from "@/lib/queries/expenses";
 import { getActiveCashbooksForUser } from "@/lib/queries/cashbooks";
+import { getCurrentFinancialYear } from "@/lib/queries/financial-years";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
 import { ExpensePaymentForm } from "@/components/forms/expense-payment-form";
@@ -84,12 +85,7 @@ export default async function PayExpensePage({
   }
 
   // Get active financial year
-  const { data: fy } = await supabase
-    .from("financial_years")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("is_active", true)
-    .single();
+  const fy = await getCurrentFinancialYear(companyId);
 
   const hierarchyLevel = getMinHierarchyLevel(assignments);
 

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserPermissions, getUserAssignments, getMinHierarchyLevel } from "@/lib/auth/helpers";
 import { getCashbooks } from "@/lib/queries/cashbooks";
 import { PERMISSIONS } from "@/lib/constants/permissions";
+import { getCurrentFinancialYear } from "@/lib/queries/financial-years";
 import { PageHeader } from "@/components/shared/page-header";
 import { CashbookTransferForm } from "@/components/forms/cashbook-transfer-form";
 import { Button } from "@/components/ui/button";
@@ -37,12 +38,7 @@ export default async function NewCashbookTransferPage() {
   }
 
   // Get active financial year
-  const { data: fy } = await supabase
-    .from("financial_years")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("is_active", true)
-    .single();
+  const fy = await getCurrentFinancialYear(companyId);
 
   const hierarchyLevel = getMinHierarchyLevel(assignments);
 

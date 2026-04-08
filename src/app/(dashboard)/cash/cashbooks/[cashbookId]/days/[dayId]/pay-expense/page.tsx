@@ -7,6 +7,7 @@ import { getUserPermissions } from "@/lib/auth/helpers";
 import { getCashbook } from "@/lib/queries/cashbooks";
 import { getCashbookDay } from "@/lib/queries/cashbook-days";
 import { getExpenses } from "@/lib/queries/expenses";
+import { getCurrentFinancialYear } from "@/lib/queries/financial-years";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -60,14 +61,7 @@ export default async function PayExpensePage({
   const branchId = cookieStore.get("scope_branch_id")?.value ?? cashbook.branch_id ?? "";
 
   // Get active financial year
-  const { data: fy } = await supabase
-    .from("financial_years")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("is_locked", false)
-    .order("start_date", { ascending: false })
-    .limit(1)
-    .single();
+  const fy = await getCurrentFinancialYear(companyId);
 
   // Fetch owner_approved unpaid expenses for this branch
   const allApproved = await getExpenses(companyId, branchId || null, {

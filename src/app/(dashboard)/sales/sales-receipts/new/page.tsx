@@ -9,6 +9,7 @@ import {
   getInsuranceCompanies,
   getFinanceCompanies,
 } from "@/lib/queries/company-configs";
+import { getCurrentFinancialYear } from "@/lib/queries/financial-years";
 import { PageHeader } from "@/components/shared/page-header";
 import { SalesReceiptForm } from "./sales-receipt-form";
 
@@ -63,12 +64,7 @@ export default async function NewSalesReceiptPage() {
   ] = await Promise.all([
     fyId
       ? Promise.resolve({ data: { id: fyId } })
-      : supabase
-          .from("financial_years")
-          .select("id")
-          .eq("company_id", companyId)
-          .eq("is_active", true)
-          .single(),
+      : getCurrentFinancialYear(companyId).then((fy) => ({ data: fy })),
     getCustomersForSelect(companyId).catch(() => [] as Awaited<ReturnType<typeof getCustomersForSelect>>),
     getCashbooks(companyId, branchId, "cash").catch(() => []),
     getInsuranceCompanies(companyId).catch(() => [] as string[]),

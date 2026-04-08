@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPermissions } from "@/lib/auth/helpers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
+import { getCurrentFinancialYear } from "@/lib/queries/financial-years";
 import { getSuppliers } from "@/lib/queries/purchases";
 import { PageHeader } from "@/components/shared/page-header";
 import { PurchaseInvoiceForm } from "@/components/forms/purchase-invoice-form";
@@ -27,12 +28,7 @@ export default async function NewPurchasePage() {
     );
   }
 
-  const { data: fy } = await supabase
-    .from("financial_years")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("is_active", true)
-    .single();
+  const fy = await getCurrentFinancialYear(companyId);
 
   const suppliers = await getSuppliers(companyId);
 

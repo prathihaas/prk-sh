@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserPermissions } from "@/lib/auth/helpers";
 import { getEmployee } from "@/lib/queries/employees";
 import { getLeaveBalances } from "@/lib/queries/leave-balances";
+import { getCurrentFinancialYear } from "@/lib/queries/financial-years";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +20,7 @@ export default async function LeaveBalancePage({ params }: { params: Promise<{ e
   let employee; try { employee = await getEmployee(employeeId); } catch { notFound(); }
   const cookieStore = await cookies();
   const companyId = cookieStore.get("scope_company_id")?.value;
-  const { data: fy } = await supabase.from("financial_years").select("id").eq("company_id", companyId!).eq("is_active", true).single();
+  const fy = await getCurrentFinancialYear(companyId!);
   const balances = fy ? await getLeaveBalances(employeeId, fy.id) : [];
   return (<div className="space-y-6"><PageHeader title={`Leave Balances — ${employee.full_name}`} /><Card><CardHeader><CardTitle>Leave Balances</CardTitle></CardHeader><CardContent><LeaveBalanceEditor employeeId={employeeId} financialYearId={fy?.id || ""} balances={balances} /></CardContent></Card></div>);
 }

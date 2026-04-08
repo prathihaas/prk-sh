@@ -4,6 +4,41 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { financialYearSchema, type FinancialYearFormValues } from "@/lib/validators/financial-year";
 
+/**
+ * Get the current active financial year for a company.
+ * Prefers the FY whose date range covers today; falls back to the most recent active FY.
+ * Returns null if no active FY exists.
+ */
+export async function getCurrentFinancialYear(companyId: string) {
+  const supabase = await createClient();
+  const today = new Date().toISOString().split("T")[0];
+
+  // Try to find the FY that covers today
+  const { data: covering } = await supabase
+    .from("financial_years")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("is_active", true)
+    .lte("start_date", today)
+    .gte("end_date", today)
+    .limit(1)
+    .maybeSingle();
+
+  if (covering) return covering;
+
+  // Fallback: most recent active FY by start_date
+  const { data: latest } = await supabase
+    .from("financial_years")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("is_active", true)
+    .order("start_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return latest;
+}
+
 export async function getFinancialYears(companyId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase

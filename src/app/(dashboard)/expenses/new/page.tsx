@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserPermissions } from "@/lib/auth/helpers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { getExpenseCategories } from "@/lib/queries/expense-categories";
+import { getCurrentFinancialYear } from "@/lib/queries/financial-years";
 import { ExpenseForm } from "@/components/forms/expense-form";
 
 export default async function NewExpensePage() {
@@ -20,12 +21,7 @@ export default async function NewExpensePage() {
 
   if (!companyId || !branchId) redirect("/expenses");
 
-  const { data: fy } = await supabase
-    .from("financial_years")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("is_active", true)
-    .single();
+  const fy = await getCurrentFinancialYear(companyId);
 
   if (!fy) redirect("/expenses");
 

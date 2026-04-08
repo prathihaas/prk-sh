@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ExcelImport } from "./excel-import";
 import { getCashbooks } from "@/lib/queries/cashbooks";
 import { getExpenseCategories } from "@/lib/queries/expense-categories";
+import { getCurrentFinancialYear } from "@/lib/queries/financial-years";
 
 export default async function ImportPage() {
   const supabase = await createClient();
@@ -34,12 +35,7 @@ export default async function ImportPage() {
   }
 
   // Get active financial year
-  const { data: fy } = await supabase
-    .from("financial_years")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("is_active", true)
-    .single();
+  const fy = await getCurrentFinancialYear(companyId);
 
   const cashbooks = await getCashbooks(companyId, branchId);
   const expenseCategories = await getExpenseCategories(companyId);
