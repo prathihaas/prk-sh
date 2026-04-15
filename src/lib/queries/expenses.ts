@@ -245,8 +245,10 @@ export async function submitExpense(id: string) {
   if (error) return { error: error.message };
   revalidatePath("/expenses");
 
-  // Notify branch approver (fire-and-forget)
-  void notifyNextApprover(id, expense.company_id, "branch");
+  // Notify branch approver (fire-and-forget) — guard against missing company_id
+  if (expense.company_id) {
+    void notifyNextApprover(id, expense.company_id, "branch");
+  }
 
   return { success: true };
 }
@@ -333,12 +335,37 @@ export async function approveExpenseOwner(id: string) {
 
 export async function rejectExpense(id: string, reason: string) {
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  if (!reason || reason.trim().length === 0) {
+    return { error: "Rejection reason is required" };
+  }
+
+  // Only allow rejection from an actionable (pending) state. Prevents re-rejecting
+  // paid/already-rejected expenses and prevents race conditions where a stale
+  // approval request fires after a reject/approve.
+  const { data: updated, error } = await supabase
     .from("expenses")
-    .update({ approval_status: "rejected", rejection_reason: reason })
-    .eq("id", id);
+    .update({
+      approval_status: "rejected",
+      rejection_reason: reason.trim(),
+      rejected_by: user.id,
+      rejected_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .in("approval_status", ["submitted", "branch_approved", "accounts_approved"])
+    .select("id")
+    .maybeSingle();
 
   if (error) return { error: error.message };
+  if (!updated) {
+    return {
+      error:
+        "Cannot reject: expense is not in an actionable state (must be submitted, branch_approved, or accounts_approved).",
+    };
+  }
+
   revalidatePath("/expenses");
   return { success: true };
 }

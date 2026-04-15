@@ -28,6 +28,61 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Guard against saving the bot's own ID as a user's chat_id.
+  // The bot token format is "<bot_id>:<secret>" — if the user accidentally pastes
+  // the numeric prefix of the token, messages would fail silently (bots can't DM themselves).
+  if (cleanChatId) {
+    // Fetch the target user's company to compare against the bot token for that company.
+    const { data: targetProfile } = await supabase
+      .from("user_profiles")
+      .select("id")
+      .eq("id", user_id)
+      .maybeSingle();
+
+    if (targetProfile) {
+      // Check all bot tokens in company_configs and reject if the numeric prefix matches
+      const { data: botConfigs } = await supabase
+        .from("company_configs")
+        .select("config_value")
+        .eq("config_key", "telegram_bot_token");
+
+      const isBotId = (botConfigs || []).some((c: { config_value: unknown }) => {
+        const token = typeof c.config_value === "string" ? c.config_value : "";
+        const botIdPrefix = token.split(":")[0];
+        return botIdPrefix && botIdPrefix === cleanChatId;
+      });
+
+      if (isBotId) {
+        return Response.json(
+          {
+            error:
+              "This is the BOT's own ID, not a user chat ID. The user must message @userinfobot on Telegram to get their personal chat ID (a different number from the bot token).",
+          },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
+  // Prevent two users from sharing the same chat_id (would misroute OTPs)
+  if (cleanChatId) {
+    const { data: existing } = await supabase
+      .from("user_profiles")
+      .select("id, full_name")
+      .eq("telegram_chat_id", cleanChatId)
+      .neq("id", user_id)
+      .maybeSingle();
+
+    if (existing) {
+      return Response.json(
+        {
+          error: `This Telegram chat ID is already linked to ${existing.full_name}. Each user must have a unique chat ID.`,
+        },
+        { status: 400 }
+      );
+    }
+  }
+
   const { error } = await supabase
     .from("user_profiles")
     .update({ telegram_chat_id: cleanChatId })
