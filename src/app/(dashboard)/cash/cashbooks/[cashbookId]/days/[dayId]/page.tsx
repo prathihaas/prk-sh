@@ -95,7 +95,7 @@ export default async function CashbookDayDetailPage({
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardDescription>System Closing</CardDescription></CardHeader>
-          <CardContent><p className="text-lg font-semibold tabular-nums">{day.system_closing !== null ? formatINR(day.system_closing) : "—"}</p></CardContent>
+          <CardContent><p className="text-lg font-semibold tabular-nums">{formatINR(day.system_closing ?? day.opening_balance)}</p></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardDescription>Physical Count</CardDescription></CardHeader>

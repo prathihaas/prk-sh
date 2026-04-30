@@ -47,13 +47,13 @@ export const columns: ColumnDef<CashbookDayRow>[] = [
   {
     accessorKey: "system_closing",
     header: "System Closing",
-    cell: ({ row }) => (
-      <span className="tabular-nums">
-        {row.getValue("system_closing") !== null
-          ? formatINR(row.getValue("system_closing"))
-          : "—"}
-      </span>
-    ),
+    cell: ({ row }) => {
+      const closing = row.getValue("system_closing") as number | null;
+      const opening = row.original.opening_balance;
+      return (
+        <span className="tabular-nums">{formatINR(closing ?? opening)}</span>
+      );
+    },
   },
   {
     accessorKey: "physical_count",
