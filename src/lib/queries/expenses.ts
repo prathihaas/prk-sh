@@ -16,12 +16,13 @@ import {
   isUserEligibleExpenseApprover,
 } from "@/lib/queries/expense-approvers";
 
-// ── Internal: Notify all eligible approvers via Telegram ────────────────────
+// ── Internal: Notify the branch manager via Telegram ────────────────────────
 //
-// Approval is single-stage. When an expense is submitted, every eligible
-// approver (every owner, finance controller, accountant in the company; plus
-// any branch manager assigned to the expense's branch) receives a Telegram
-// message. The first one to tap Approve/Reject wins.
+// Approval is single-stage and any eligible approver (owner / finance / accounts
+// / branch manager) can approve in the app. To keep Telegram quiet for the
+// senior roles, the *Telegram* notification goes only to the branch manager
+// of the expense's branch — they're the day-to-day operational gatekeeper.
+// Senior approvers can still review and act from the in-app /approvals inbox.
 
 async function notifyExpenseApprovers(
   expenseId: string,
@@ -38,6 +39,7 @@ async function notifyExpenseApprovers(
 
     if (!botToken) return;
     const chatIds = approvers
+      .filter((a) => a.role_name === "branch_manager")
       .map((a) => a.telegram_chat_id)
       .filter((id): id is string => typeof id === "string" && id.length > 0);
     if (chatIds.length === 0) return;
