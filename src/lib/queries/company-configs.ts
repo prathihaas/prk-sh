@@ -403,23 +403,61 @@ export async function updateTelegramDayCloseBranchOverride(
 }
 
 // ── Telegram Expense Approvers ─────────────────────────────────────────────
+//
+// Each level may have MULTIPLE approvers — every configured user gets the
+// Telegram message and any one of them can approve. We keep both the legacy
+// single-id field and the new *_ids arrays for backward compatibility on read;
+// writes always populate the array form.
 
 export interface TelegramExpenseApprovers {
-  branch_approver_id: string | null;
-  accounts_approver_id: string | null;
-  owner_approver_id: string | null;
+  branch_approver_id: string | null;       // legacy (first id of array)
+  accounts_approver_id: string | null;     // legacy
+  owner_approver_id: string | null;        // legacy
+  branch_approver_ids: string[];
+  accounts_approver_ids: string[];
+  owner_approver_ids: string[];
+}
+
+function uniq(arr: (string | null | undefined)[]): string[] {
+  const out: string[] = [];
+  for (const v of arr) {
+    if (v && typeof v === "string" && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
+
+function parseIdList(legacy: unknown, list: unknown): string[] {
+  const ids: string[] = [];
+  if (typeof legacy === "string" && legacy) ids.push(legacy);
+  if (Array.isArray(list)) {
+    for (const v of list) if (typeof v === "string" && v) ids.push(v);
+  }
+  return uniq(ids);
 }
 
 function parseTelegramExpenseApprovers(raw: unknown): TelegramExpenseApprovers {
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     const r = raw as Record<string, unknown>;
+    const branch_ids = parseIdList(r.branch_approver_id, r.branch_approver_ids);
+    const accounts_ids = parseIdList(r.accounts_approver_id, r.accounts_approver_ids);
+    const owner_ids = parseIdList(r.owner_approver_id, r.owner_approver_ids);
     return {
-      branch_approver_id: (r.branch_approver_id as string) || null,
-      accounts_approver_id: (r.accounts_approver_id as string) || null,
-      owner_approver_id: (r.owner_approver_id as string) || null,
+      branch_approver_id: branch_ids[0] || null,
+      accounts_approver_id: accounts_ids[0] || null,
+      owner_approver_id: owner_ids[0] || null,
+      branch_approver_ids: branch_ids,
+      accounts_approver_ids: accounts_ids,
+      owner_approver_ids: owner_ids,
     };
   }
-  return { branch_approver_id: null, accounts_approver_id: null, owner_approver_id: null };
+  return {
+    branch_approver_id: null,
+    accounts_approver_id: null,
+    owner_approver_id: null,
+    branch_approver_ids: [],
+    accounts_approver_ids: [],
+    owner_approver_ids: [],
+  };
 }
 
 export async function getTelegramExpenseApprovers(
@@ -440,10 +478,22 @@ export async function updateTelegramExpenseApprovers(
   approvers: TelegramExpenseApprovers
 ) {
   const supabase = await createClient();
+  // Normalize: ensure arrays drive truth and legacy single-id mirrors first id
+  const branch_ids = uniq(approvers.branch_approver_ids ?? []);
+  const accounts_ids = uniq(approvers.accounts_approver_ids ?? []);
+  const owner_ids = uniq(approvers.owner_approver_ids ?? []);
+  const normalized: TelegramExpenseApprovers = {
+    branch_approver_ids: branch_ids,
+    accounts_approver_ids: accounts_ids,
+    owner_approver_ids: owner_ids,
+    branch_approver_id: branch_ids[0] || null,
+    accounts_approver_id: accounts_ids[0] || null,
+    owner_approver_id: owner_ids[0] || null,
+  };
   const { error } = await supabase
     .from("company_configs")
     .upsert(
-      { company_id: companyId, config_key: "telegram_expense_approvers", config_value: approvers },
+      { company_id: companyId, config_key: "telegram_expense_approvers", config_value: normalized },
       { onConflict: "company_id,config_key" }
     );
   if (error) return { error: error.message };

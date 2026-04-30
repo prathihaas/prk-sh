@@ -7,6 +7,7 @@ import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
 import { PrintExpenseVoucher } from "@/components/shared/print-expense-voucher";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { ExpenseApprovalProgress } from "@/components/shared/expense-approval-progress";
 import { formatINR } from "@/components/shared/currency-display";
 import {
   Card,
@@ -81,6 +82,29 @@ export default async function ExpenseDetailPage({
         title={`Expense — ${voucherNumber}`}
         description="View expense details and print Indian IT-format payment voucher"
       />
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Approval Progress</CardTitle>
+          <CardDescription>
+            {expense.approval_status === "draft" && "Draft — submit it to start the approval flow."}
+            {expense.approval_status === "submitted" && "Waiting for branch manager approval."}
+            {expense.approval_status === "branch_approved" && "Approved by branch — waiting for accounts."}
+            {expense.approval_status === "accounts_approved" && "Approved by accounts — waiting for owner."}
+            {expense.approval_status === "owner_approved" && "Fully approved — ready to be paid."}
+            {expense.approval_status === "paid" && "Payment recorded."}
+            {expense.approval_status === "paid_direct" && "Paid directly by cashier (bypassed approval)."}
+            {expense.approval_status === "rejected" && (
+              <span className="text-red-600">
+                Rejected{expense.rejection_reason ? `: ${expense.rejection_reason}` : ""}
+              </span>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ExpenseApprovalProgress status={expense.approval_status} />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-4">
         {/* Main: Printable Voucher */}

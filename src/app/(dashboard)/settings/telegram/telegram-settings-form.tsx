@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import {
   Save, RefreshCw, MessageCircle, Copy, CheckCircle2,
-  ChevronDown, ChevronUp, Info,
+  ChevronDown, ChevronUp, Info, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -398,48 +398,86 @@ export function TelegramSettingsForm({
         <CardHeader>
           <CardTitle className="text-lg">Expense Approval Notifications</CardTitle>
           <CardDescription>
-            When an expense reaches each approval stage, the designated approver receives a Telegram
-            message with <strong>Approve</strong> and <strong>Reject</strong> buttons — they can act
-            directly in Telegram without opening the app.
+            When an expense reaches each approval stage, every configured approver
+            receives a Telegram message with <strong>Approve</strong> and <strong>Reject</strong> buttons.
+            Any one of them can act on it — the first to respond wins.
+            Add as many approvers per level as you like.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {(
             [
-              { key: "branch_approver_id", label: "Branch Level Approver", description: "Notified when expense is submitted" },
-              { key: "accounts_approver_id", label: "Accounts Level Approver", description: "Notified after branch approval" },
-              { key: "owner_approver_id", label: "Owner Level Approver", description: "Notified after accounts approval" },
+              { listKey: "branch_approver_ids", label: "Branch Level Approvers", description: "Notified when expense is submitted" },
+              { listKey: "accounts_approver_ids", label: "Accounts Level Approvers", description: "Notified after branch approval" },
+              { listKey: "owner_approver_ids", label: "Owner Level Approvers", description: "Notified after accounts approval" },
             ] as const
-          ).map(({ key, label, description }) => (
-            <div key={key} className="space-y-1.5">
-              <div>
-                <Label className="text-sm">{label}</Label>
-                <p className="text-xs text-muted-foreground">{description}</p>
-              </div>
-              <Select
-                value={expenseApprovers[key] || NO_MANAGER}
-                onValueChange={(val) =>
-                  setExpenseApprovers((prev) => ({ ...prev, [key]: val === NO_MANAGER ? null : val }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="No approver configured" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_MANAGER}>
-                    <span className="text-muted-foreground">No approver (skip notification)</span>
-                  </SelectItem>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      <span className={u.has_telegram ? "" : "text-muted-foreground"}>
-                        {userLabel(u)}
-                      </span>
+          ).map(({ listKey, label, description }) => {
+            const ids = expenseApprovers[listKey] ?? [];
+            const availableUsers = users.filter((u) => !ids.includes(u.id));
+            return (
+              <div key={listKey} className="space-y-2">
+                <div>
+                  <Label className="text-sm">{label}</Label>
+                  <p className="text-xs text-muted-foreground">{description}</p>
+                </div>
+
+                {ids.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {ids.map((uid) => {
+                      const u = users.find((x) => x.id === uid);
+                      return (
+                        <Badge key={uid} variant="secondary" className="gap-1.5 py-1 pl-2.5 pr-1">
+                          <span className={u?.has_telegram ? "" : "text-muted-foreground"}>
+                            {u ? userLabel(u) : uid}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpenseApprovers((prev) => ({
+                                ...prev,
+                                [listKey]: (prev[listKey] ?? []).filter((x) => x !== uid),
+                              }))
+                            }
+                            className="rounded-sm hover:bg-muted-foreground/20 p-0.5"
+                            aria-label={`Remove ${u?.full_name || uid}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <Select
+                  value={NO_MANAGER}
+                  onValueChange={(val) => {
+                    if (val === NO_MANAGER) return;
+                    setExpenseApprovers((prev) => ({
+                      ...prev,
+                      [listKey]: [...(prev[listKey] ?? []), val],
+                    }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={ids.length === 0 ? "Add approver…" : "Add another approver…"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_MANAGER}>
+                      <span className="text-muted-foreground">{availableUsers.length === 0 ? "All users added" : "Select a user…"}</span>
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ))}
+                    {availableUsers.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        <span className={u.has_telegram ? "" : "text-muted-foreground"}>
+                          {userLabel(u)}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            );
+          })}
 
           <div className="flex justify-end">
             <Button onClick={saveExpenseApprovers} disabled={isSavingExpense} className="gap-2">

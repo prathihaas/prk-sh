@@ -55,7 +55,11 @@ export async function createCompany(values: CompanyFormValues & { group_id: stri
     return { error: error.message };
   }
 
-  revalidatePath("/org/companies");
+  // A new company affects company/branch dropdowns across many pages
+  // (user creation, settings, telegram, scope switcher, etc.). Invalidate
+  // the entire dashboard layout so all server components refetch their
+  // company-scoped data on next navigation.
+  revalidatePath("/", "layout");
   return { success: true };
 }
 
@@ -86,6 +90,6 @@ export async function updateCompany(id: string, values: CompanyFormValues) {
     return { error: error.message };
   }
 
-  revalidatePath("/org/companies");
+  revalidatePath("/", "layout");
   return { success: true };
 }

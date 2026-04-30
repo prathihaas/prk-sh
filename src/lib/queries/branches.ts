@@ -55,7 +55,9 @@ export async function createBranch(
     return { error: error.message };
   }
 
-  revalidatePath("/org/branches");
+  // Branches feed dropdowns across user creation, telegram settings, scope
+  // switcher, etc. Invalidate broadly so all server components refetch.
+  revalidatePath("/", "layout");
   return { success: true };
 }
 
@@ -83,6 +85,6 @@ export async function updateBranch(id: string, values: BranchFormValues) {
     return { error: error.message };
   }
 
-  revalidatePath("/org/branches");
+  revalidatePath("/", "layout");
   return { success: true };
 }

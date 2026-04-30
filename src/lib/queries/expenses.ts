@@ -21,7 +21,9 @@ async function notifyNextApprover(
   companyId: string,
   level: ApprovalLevel
 ): Promise<void> {
-  // Fire-and-forget: errors are logged but do not affect the main flow
+  // Fire-and-forget: errors are logged but do not affect the main flow.
+  // Each level may have MULTIPLE approvers — every configured user with a
+  // Telegram chat id receives the message. Any one of them can approve.
   try {
     const supabase = await createClient();
 
@@ -32,22 +34,25 @@ async function notifyNextApprover(
 
     if (!botToken) return;
 
-    const approverIdMap: Record<ApprovalLevel, string | null> = {
-      branch: approvers.branch_approver_id,
-      accounts: approvers.accounts_approver_id,
-      owner: approvers.owner_approver_id,
+    const approverIdMap: Record<ApprovalLevel, string[]> = {
+      branch: approvers.branch_approver_ids,
+      accounts: approvers.accounts_approver_ids,
+      owner: approvers.owner_approver_ids,
     };
 
-    const approverId = approverIdMap[level];
-    if (!approverId) return;
+    const approverIds = approverIdMap[level];
+    if (!approverIds || approverIds.length === 0) return;
 
-    const { data: approverProfile } = await supabase
+    const { data: approverProfiles } = await supabase
       .from("user_profiles")
-      .select("telegram_chat_id")
-      .eq("id", approverId)
-      .maybeSingle();
+      .select("id, telegram_chat_id")
+      .in("id", approverIds);
 
-    if (!approverProfile?.telegram_chat_id) return;
+    const chatIds = (approverProfiles || [])
+      .map((p: { telegram_chat_id: string | null }) => p.telegram_chat_id)
+      .filter((id: string | null): id is string => typeof id === "string" && id.length > 0);
+
+    if (chatIds.length === 0) return;
 
     const { data: expense } = await supabase
       .from("expenses")
@@ -80,20 +85,23 @@ async function notifyNextApprover(
     const categoryName = (expense.category as { name?: string } | null)?.name || "Expense";
     const submitterName = (expense.submitter as { full_name?: string } | null)?.full_name || "Unknown";
 
-    await sendExpenseApprovalRequest(
-      {
-        expenseId: expense.id,
-        amount: expense.amount,
-        description: expense.description,
-        categoryName,
-        expenseDate: expense.expense_date,
-        submitterName,
-        companyName: company?.name,
-        branchName,
-      },
-      level,
-      botToken,
-      approverProfile.telegram_chat_id
+    const payload = {
+      expenseId: expense.id,
+      amount: expense.amount,
+      description: expense.description,
+      categoryName,
+      expenseDate: expense.expense_date,
+      submitterName,
+      companyName: company?.name,
+      branchName,
+    };
+
+    await Promise.all(
+      chatIds.map((chatId: string) =>
+        sendExpenseApprovalRequest(payload, level, botToken, chatId).catch((err: unknown) => {
+          console.error(`[telegram] failed for chat ${chatId}:`, err);
+        })
+      )
     );
   } catch (err) {
     console.error("[telegram] notifyNextApprover error:", err);
