@@ -121,7 +121,7 @@ export default async function ApprovalDetailPage({
       </Card>
 
       {/* Action form for pending step */}
-      {pendingStep && request.overall_status === "pending" && (
+      {pendingStep && (request.overall_status === "pending" || request.overall_status === "in_progress") && (
         <>
           <Separator />
           <ApprovalActionForm

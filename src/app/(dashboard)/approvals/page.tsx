@@ -57,9 +57,10 @@ export default async function ApprovalsPage({
             label: "Status",
             options: [
               { value: "pending", label: "Pending" },
+              { value: "in_progress", label: "In Progress" },
               { value: "approved", label: "Approved" },
               { value: "rejected", label: "Rejected" },
-              { value: "escalated", label: "Escalated" },
+              { value: "cancelled", label: "Cancelled" },
             ],
           },
           {

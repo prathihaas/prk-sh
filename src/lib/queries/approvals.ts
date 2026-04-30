@@ -3,6 +3,33 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
+// The DB schema uses: entity_type, entity_id, status (on approval_requests)
+// and approved_by (on approval_steps). The UI was written against an older
+// schema with different names — we alias on read to keep the UI unchanged.
+
+const REQUEST_SELECT = `
+  id,
+  company_id,
+  branch_id,
+  current_step,
+  total_steps,
+  created_at,
+  request_type:entity_type,
+  reference_id:entity_id,
+  overall_status:status,
+  steps:approval_steps(
+    id,
+    request_id,
+    step_order,
+    approver_role_id,
+    status,
+    comments,
+    acted_at,
+    assigned_to:approved_by,
+    approver:user_profiles!approval_steps_approved_by_fkey(full_name)
+  )
+`;
+
 export async function getApprovalRequests(
   companyId: string,
   branchId?: string | null,
@@ -11,13 +38,13 @@ export async function getApprovalRequests(
   const supabase = await createClient();
   let query = supabase
     .from("approval_requests")
-    .select("*, steps:approval_steps(*, approver:user_profiles(full_name))")
+    .select(REQUEST_SELECT)
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
 
   if (branchId) query = query.eq("branch_id", branchId);
-  if (filters?.status) query = query.eq("overall_status", filters.status);
-  if (filters?.type) query = query.eq("request_type", filters.type);
+  if (filters?.status) query = query.eq("status", filters.status);
+  if (filters?.type) query = query.eq("entity_type", filters.type);
 
   const { data, error } = await query;
   if (error) throw error;
@@ -28,7 +55,7 @@ export async function getApprovalRequest(id: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("approval_requests")
-    .select("*, steps:approval_steps(*, approver:user_profiles(full_name))")
+    .select(REQUEST_SELECT)
     .eq("id", id)
     .single();
 
@@ -47,7 +74,7 @@ export async function approveStep(stepId: string, comments?: string) {
     .from("approval_steps")
     .update({
       status: "approved",
-      assigned_to: user.id,
+      approved_by: user.id,
       comments: comments || null,
       acted_at: new Date().toISOString(),
     })
@@ -70,7 +97,7 @@ export async function rejectStep(stepId: string, comments: string) {
     .from("approval_steps")
     .update({
       status: "rejected",
-      assigned_to: user.id,
+      approved_by: user.id,
       comments,
       acted_at: new Date().toISOString(),
     })
@@ -79,7 +106,6 @@ export async function rejectStep(stepId: string, comments: string) {
 
   if (stepError) return { error: stepError.message };
 
-  // Also update the overall request status
   const { data: step } = await supabase
     .from("approval_steps")
     .select("request_id")
@@ -89,7 +115,7 @@ export async function rejectStep(stepId: string, comments: string) {
   if (step) {
     await supabase
       .from("approval_requests")
-      .update({ overall_status: "rejected" })
+      .update({ status: "rejected" })
       .eq("id", step.request_id);
   }
 

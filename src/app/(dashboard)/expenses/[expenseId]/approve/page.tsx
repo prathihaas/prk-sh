@@ -27,10 +27,29 @@ const STAGE_LABEL: Record<NonNullable<Stage>, string> = {
   owner: "Owner / Final Approval",
 };
 
-const STAGE_PERM: Record<NonNullable<Stage>, string> = {
-  branch: PERMISSIONS.EXPENSE_APPROVE_BRANCH,
-  accounts: PERMISSIONS.EXPENSE_APPROVE_ACCOUNTS,
-  owner: PERMISSIONS.EXPENSE_APPROVE_OWNER,
+/**
+ * Higher-tier approvers can act on lower-tier stages too.
+ * - APPROVE_OWNER  → can approve owner / accounts / branch
+ * - APPROVE_ACCOUNTS → can approve accounts / branch
+ * - APPROVE_BRANCH → can only approve branch
+ *
+ * This lets Owners/Admins (who hold APPROVE_OWNER) sign off at any stage —
+ * useful when a branch manager is unavailable, etc. The server action itself
+ * still enforces the state machine (only the right starting status moves to
+ * the right ending status), so an owner can't skip stages — they advance one
+ * step at a time.
+ */
+const STAGE_PERMS: Record<NonNullable<Stage>, string[]> = {
+  branch: [
+    PERMISSIONS.EXPENSE_APPROVE_BRANCH,
+    PERMISSIONS.EXPENSE_APPROVE_ACCOUNTS,
+    PERMISSIONS.EXPENSE_APPROVE_OWNER,
+  ],
+  accounts: [
+    PERMISSIONS.EXPENSE_APPROVE_ACCOUNTS,
+    PERMISSIONS.EXPENSE_APPROVE_OWNER,
+  ],
+  owner: [PERMISSIONS.EXPENSE_APPROVE_OWNER],
 };
 
 export default async function ApproveExpensePage({
@@ -81,8 +100,8 @@ export default async function ApproveExpensePage({
     );
   }
 
-  const requiredPerm = STAGE_PERM[stage];
-  const canApprove = permissions.has(requiredPerm);
+  const allowedPerms = STAGE_PERMS[stage];
+  const canApprove = allowedPerms.some((p) => permissions.has(p));
 
   return (
     <div className="space-y-6">
@@ -137,7 +156,7 @@ export default async function ApproveExpensePage({
           <CardContent className="py-6 text-center text-sm text-muted-foreground">
             You do not have permission to approve this stage ({STAGE_LABEL[stage]}).
             <br />
-            Required permission: <code className="font-mono">{requiredPerm}</code>
+            Required (any of): <code className="font-mono">{allowedPerms.join(", ")}</code>
           </CardContent>
         </Card>
       )}
