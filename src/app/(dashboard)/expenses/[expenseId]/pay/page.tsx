@@ -68,17 +68,20 @@ export default async function PayExpensePage({
     );
   }
 
-  // Cashiers can pay directly (bypass_approval) even if not fully approved
-  // Accounts/owners must wait for full approval unless they have pay_direct permission
+  // Single-stage approval: any of the legacy *_approved states counts as
+  // approved-and-payable. Cashiers can also bypass with EXPENSE_PAY_DIRECT.
   const canBypassApproval = permissions.has(PERMISSIONS.EXPENSE_PAY_DIRECT);
-  const isFullyApproved = expense.approval_status === "owner_approved";
+  const isApproved =
+    expense.approval_status === "branch_approved" ||
+    expense.approval_status === "accounts_approved" ||
+    expense.approval_status === "owner_approved";
 
-  if (!isFullyApproved && !canBypassApproval) {
+  if (!isApproved && !canBypassApproval) {
     return (
       <div className="space-y-6">
         <PageHeader
           title="Pay Expense"
-          description="This expense must be fully approved (owner_approved) before payment. Contact your manager or use cashier direct payment if you have that access."
+          description="This expense is not approved yet. Ask an owner, finance controller, accountant, or this branch's manager to approve it — or use Pay Directly if you have cashier access."
         />
       </div>
     );
@@ -117,7 +120,7 @@ export default async function PayExpensePage({
           approval_status: expense.approval_status,
         }}
         cashbooks={cashbooks}
-        canBypassApproval={canBypassApproval && !isFullyApproved}
+        canBypassApproval={canBypassApproval && !isApproved}
       />
     </div>
   );

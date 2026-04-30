@@ -405,9 +405,18 @@ export async function payExpense(
     return { error: "Expense not found" };
   }
 
-  // If not bypassing approval, require full approval
-  if (!values.bypass_approval && expense.approval_status !== "owner_approved") {
-    return { error: "Expense must be fully approved (owner_approved) before payment. Cashiers can use 'Pay Directly' to bypass approval." };
+  // Approval is single-stage now: any of the legacy *_approved statuses
+  // counts as "approved and payable". Cashiers may also bypass entirely.
+  const APPROVED_STATES = new Set([
+    "branch_approved",
+    "accounts_approved",
+    "owner_approved",
+  ]);
+  if (!values.bypass_approval && !APPROVED_STATES.has(expense.approval_status)) {
+    return {
+      error:
+        "Expense is not approved yet. Ask any owner, finance controller, accountant, or this branch's manager to approve it first — or use 'Pay Directly' if you have that permission.",
+    };
   }
 
   if (expense.payment_date) {
