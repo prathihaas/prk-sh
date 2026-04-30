@@ -52,6 +52,10 @@ export function ExpenseForm({
     },
   });
 
+  // Track which button the user clicked, so the form's submit handler knows
+  // whether to also submit-for-approval after the create/update.
+  const [submitMode, setSubmitMode] = useState<"approve" | "draft">("approve");
+
   async function onSubmit(values: ExpenseFormValues) {
     setIsSubmitting(true);
     try {
@@ -67,28 +71,29 @@ export function ExpenseForm({
 
       if (result.error) {
         toast.error(result.error);
-      } else {
-        toast.success(isEditing ? "Expense updated" : "Expense saved as draft");
-        router.push("/expenses");
+        return;
       }
-    } catch {
-      toast.error("An unexpected error occurred");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
 
-  async function handleSubmitForApproval() {
-    if (!isEditing || !expense?.id) return;
-    setIsSubmitting(true);
-    try {
-      const result = await submitExpense(expense.id as string);
-      if (result.error) {
-        toast.error(result.error);
+      // If "Submit for Approval" was clicked, immediately submit.
+      if (submitMode === "approve") {
+        const targetId: string | null = isEditing
+          ? ((expense!.id as string) || null)
+          : ("id" in result && typeof result.id === "string" ? result.id : null);
+        if (targetId) {
+          const submitResult = await submitExpense(targetId);
+          if (submitResult.error) {
+            toast.error(submitResult.error);
+            return;
+          }
+          toast.success("Expense submitted for approval");
+        } else {
+          toast.success("Expense saved");
+        }
       } else {
-        toast.success("Expense submitted for approval");
-        router.push("/expenses");
+        toast.success(isEditing ? "Expense saved" : "Saved as draft");
       }
+
+      router.push("/expenses");
     } catch {
       toast.error("An unexpected error occurred");
     } finally {
@@ -158,16 +163,34 @@ export function ExpenseForm({
               <FormMessage />
             </FormItem>
           )} />
-          <div className="flex gap-4">
-            <Button type="submit" variant="outline" disabled={isSubmitting}>
-              {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : "Save Draft"}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+            <Button type="button" variant="ghost" onClick={() => router.push("/expenses")}>
+              Cancel
             </Button>
-            {isEditing && expense?.approval_status === "draft" && (
-              <Button type="button" disabled={isSubmitting} onClick={handleSubmitForApproval}>
-                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</> : "Submit for Approval"}
-              </Button>
-            )}
-            <Button type="button" variant="ghost" onClick={() => router.push("/expenses")}>Cancel</Button>
+            <div className="flex-1" />
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={isSubmitting}
+              onClick={() => setSubmitMode("draft")}
+            >
+              {isSubmitting && submitMode === "draft" ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>
+              ) : (
+                "Save as Draft"
+              )}
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              onClick={() => setSubmitMode("approve")}
+            >
+              {isSubmitting && submitMode === "approve" ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</>
+              ) : (
+                "Submit for Approval"
+              )}
+            </Button>
           </div>
         </form>
       </Form>

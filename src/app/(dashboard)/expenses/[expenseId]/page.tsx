@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PrintExpenseVoucher } from "@/components/shared/print-expense-voucher";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ExpenseApprovalProgress } from "@/components/shared/expense-approval-progress";
+import { SubmitDraftButton } from "./submit-draft-button";
 import { formatINR } from "@/components/shared/currency-display";
 import {
   Card,
@@ -177,6 +178,9 @@ export default async function ExpenseDetailPage({
                     Edit Expense
                   </Link>
                 </Button>
+              )}
+              {expense.approval_status === "draft" && (
+                <SubmitDraftButton expenseId={expenseId} />
               )}
               {canApprove && (
                 <Button variant="outline" size="sm" className="w-full gap-2" asChild>

@@ -184,23 +184,27 @@ export async function createExpense(
   const validated = expenseSchema.parse(values);
   const supabase = await createClient();
 
-  const { error } = await supabase.from("expenses").insert({
-    category_id: validated.category_id,
-    expense_date: validated.expense_date,
-    amount: validated.amount,
-    description: validated.description,
-    bill_reference: validated.bill_reference || null,
-    notes: validated.notes || null,
-    company_id: values.company_id,
-    branch_id: values.branch_id,
-    submitted_by: values.submitted_by,
-    financial_year_id: values.financial_year_id,
-    approval_status: "draft",
-  });
+  const { data, error } = await supabase
+    .from("expenses")
+    .insert({
+      category_id: validated.category_id,
+      expense_date: validated.expense_date,
+      amount: validated.amount,
+      description: validated.description,
+      bill_reference: validated.bill_reference || null,
+      notes: validated.notes || null,
+      company_id: values.company_id,
+      branch_id: values.branch_id,
+      submitted_by: values.submitted_by,
+      financial_year_id: values.financial_year_id,
+      approval_status: "draft",
+    })
+    .select("id")
+    .single();
 
   if (error) return { error: error.message };
   revalidatePath("/expenses");
-  return { success: true };
+  return { success: true, id: data?.id as string };
 }
 
 export async function updateExpense(id: string, values: ExpenseFormValues) {
