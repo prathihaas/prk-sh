@@ -9,49 +9,37 @@ import {
   type ExpensePaymentFormValues,
 } from "@/lib/validators/expense";
 import { resolveOrCreateCashbookDay } from "@/lib/queries/cashbook-days";
-import { getCashLimits, getTelegramBotToken, getTelegramExpenseApprovers } from "@/lib/queries/company-configs";
+import { getCashLimits, getTelegramBotToken } from "@/lib/queries/company-configs";
 import { sendExpenseApprovalRequest } from "@/lib/utils/telegram-notify";
+import {
+  getEligibleExpenseApprovers,
+  isUserEligibleExpenseApprover,
+} from "@/lib/queries/expense-approvers";
 
-// ── Internal: Notify next approver via Telegram ──────────────────────────────
+// ── Internal: Notify all eligible approvers via Telegram ────────────────────
+//
+// Approval is single-stage. When an expense is submitted, every eligible
+// approver (every owner, finance controller, accountant in the company; plus
+// any branch manager assigned to the expense's branch) receives a Telegram
+// message. The first one to tap Approve/Reject wins.
 
-type ApprovalLevel = "branch" | "accounts" | "owner";
-
-async function notifyNextApprover(
+async function notifyExpenseApprovers(
   expenseId: string,
   companyId: string,
-  level: ApprovalLevel
+  branchId: string | null
 ): Promise<void> {
-  // Fire-and-forget: errors are logged but do not affect the main flow.
-  // Each level may have MULTIPLE approvers — every configured user with a
-  // Telegram chat id receives the message. Any one of them can approve.
   try {
     const supabase = await createClient();
 
     const [botToken, approvers] = await Promise.all([
       getTelegramBotToken(companyId),
-      getTelegramExpenseApprovers(companyId),
+      getEligibleExpenseApprovers(supabase, companyId, branchId),
     ]);
 
     if (!botToken) return;
-
-    const approverIdMap: Record<ApprovalLevel, string[]> = {
-      branch: approvers.branch_approver_ids,
-      accounts: approvers.accounts_approver_ids,
-      owner: approvers.owner_approver_ids,
-    };
-
-    const approverIds = approverIdMap[level];
-    if (!approverIds || approverIds.length === 0) return;
-
-    const { data: approverProfiles } = await supabase
-      .from("user_profiles")
-      .select("id, telegram_chat_id")
-      .in("id", approverIds);
-
-    const chatIds = (approverProfiles || [])
-      .map((p: { telegram_chat_id: string | null }) => p.telegram_chat_id)
-      .filter((id: string | null): id is string => typeof id === "string" && id.length > 0);
-
+    const chatIds = approvers
+      .map((a) => a.telegram_chat_id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0);
     if (chatIds.length === 0) return;
 
     const { data: expense } = await supabase
@@ -98,13 +86,13 @@ async function notifyNextApprover(
 
     await Promise.all(
       chatIds.map((chatId: string) =>
-        sendExpenseApprovalRequest(payload, level, botToken, chatId).catch((err: unknown) => {
+        sendExpenseApprovalRequest(payload, botToken, chatId).catch((err: unknown) => {
           console.error(`[telegram] failed for chat ${chatId}:`, err);
         })
       )
     );
   } catch (err) {
-    console.error("[telegram] notifyNextApprover error:", err);
+    console.error("[telegram] notifyExpenseApprovers error:", err);
   }
 }
 
@@ -238,7 +226,7 @@ export async function submitExpense(id: string) {
   const supabase = await createClient();
   const { data: expense, error: fetchErr } = await supabase
     .from("expenses")
-    .select("company_id, approval_status")
+    .select("company_id, branch_id, approval_status")
     .eq("id", id)
     .maybeSingle();
 
@@ -252,93 +240,96 @@ export async function submitExpense(id: string) {
 
   if (error) return { error: error.message };
   revalidatePath("/expenses");
+  revalidatePath("/approvals");
 
-  // Notify branch approver (fire-and-forget) — guard against missing company_id
+  // Notify all eligible approvers (fire-and-forget)
   if (expense.company_id) {
-    void notifyNextApprover(id, expense.company_id, "branch");
+    void notifyExpenseApprovers(id, expense.company_id, expense.branch_id ?? null);
   }
 
   return { success: true };
 }
 
-export async function approveExpenseBranch(id: string) {
+/**
+ * Approve an expense in a single step.
+ *
+ * Eligibility: caller must be (in this expense's company)
+ *   - any user with role owner / group_finance_controller / company_accountant, OR
+ *   - a branch_manager whose assignment covers this expense's branch.
+ *
+ * The submitter is never allowed to approve their own expense.
+ *
+ * On approval, the expense moves to "owner_approved" — the existing
+ * pre-payment terminal state — and the approver is recorded in
+ * owner_approved_by/at for audit. (We reuse the existing column rather
+ * than introducing a new one to avoid an enum + schema migration.)
+ */
+export async function approveExpense(id: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  const { data: expense } = await supabase
+  const { data: expense, error: fetchErr } = await supabase
     .from("expenses")
-    .select("company_id")
+    .select("company_id, branch_id, approval_status, submitted_by")
     .eq("id", id)
     .maybeSingle();
 
-  const { error } = await supabase
-    .from("expenses")
-    .update({
-      approval_status: "branch_approved",
-      branch_approved_by: user.id,
-      branch_approved_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .in("approval_status", ["submitted"]);
+  if (fetchErr || !expense) return { error: fetchErr?.message || "Expense not found" };
+  if (expense.approval_status !== "submitted") {
+    return { error: "Only submitted expenses can be approved." };
+  }
+  if (!expense.company_id) return { error: "Expense missing company scope" };
+  if (expense.submitted_by === user.id) {
+    return { error: "You cannot approve an expense you submitted yourself." };
+  }
 
-  if (error) return { error: error.message };
-  revalidatePath("/expenses");
+  const eligible = await isUserEligibleExpenseApprover(
+    supabase,
+    user.id,
+    expense.company_id,
+    expense.branch_id ?? null
+  );
+  if (!eligible) {
+    return {
+      error:
+        "You are not authorised to approve this expense. Only owners, finance controllers, accountants, or this branch's manager can approve.",
+    };
+  }
 
-  // Notify accounts approver (fire-and-forget)
-  if (expense?.company_id) void notifyNextApprover(id, expense.company_id, "accounts");
-
-  return { success: true };
-}
-
-export async function approveExpenseAccounts(id: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const { data: expense } = await supabase
-    .from("expenses")
-    .select("company_id")
-    .eq("id", id)
-    .maybeSingle();
-
-  const { error } = await supabase
-    .from("expenses")
-    .update({
-      approval_status: "accounts_approved",
-      accounts_approved_by: user.id,
-      accounts_approved_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .in("approval_status", ["branch_approved"]);
-
-  if (error) return { error: error.message };
-  revalidatePath("/expenses");
-
-  // Notify owner approver (fire-and-forget)
-  if (expense?.company_id) void notifyNextApprover(id, expense.company_id, "owner");
-
-  return { success: true };
-}
-
-export async function approveExpenseOwner(id: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
-
+  const now = new Date().toISOString();
   const { error } = await supabase
     .from("expenses")
     .update({
       approval_status: "owner_approved",
       owner_approved_by: user.id,
-      owner_approved_at: new Date().toISOString(),
+      owner_approved_at: now,
+      // mirror to legacy stage columns for any downstream report that reads them
+      branch_approved_by: user.id,
+      branch_approved_at: now,
+      accounts_approved_by: user.id,
+      accounts_approved_at: now,
     })
     .eq("id", id)
-    .in("approval_status", ["accounts_approved"]);
+    .eq("approval_status", "submitted");
 
   if (error) return { error: error.message };
   revalidatePath("/expenses");
+  revalidatePath("/approvals");
   return { success: true };
+}
+
+// ── Backwards-compatibility shims ────────────────────────────────────────
+// Old callers (UI buttons, telegram webhooks) used three stage-specific
+// approval actions. They all now collapse into the single approveExpense.
+export async function approveExpenseBranch(id: string) {
+  return approveExpense(id);
+}
+export async function approveExpenseAccounts(id: string) {
+  return approveExpense(id);
+}
+export async function approveExpenseOwner(id: string) {
+  return approveExpense(id);
 }
 
 export async function rejectExpense(id: string, reason: string) {

@@ -42,13 +42,18 @@ export async function POST(req: NextRequest) {
   const chatId = String(cbq.from.id);
   const data = cbq.data;
 
-  // Parse callback data: "approve_expense:<uuid>:<level>" or "reject_expense:<uuid>:<level>"
-  const match = data.match(/^(approve_expense|reject_expense):([0-9a-f-]+):(branch|accounts|owner)$/);
+  // Parse callback data — accept both new (single-stage) and legacy (per-level)
+  // formats so messages already in approvers' inboxes still work.
+  //   new:    "approve_expense:<uuid>"   |  "reject_expense:<uuid>"
+  //   legacy: "approve_expense:<uuid>:<level>" | "reject_expense:<uuid>:<level>"
+  const match = data.match(
+    /^(approve_expense|reject_expense):([0-9a-f-]+)(?::(?:branch|accounts|owner))?$/
+  );
   if (!match) {
     return new Response("OK", { status: 200 });
   }
 
-  const [, action, expenseId, level] = match;
+  const [, action, expenseId] = match;
 
   const supabase = await createClient();
 
@@ -101,21 +106,14 @@ export async function POST(req: NextRequest) {
   // ── Always answer the callback first (removes loading spinner) ─────────────
   await answerCallbackQuery(botToken, cbq.id);
 
-  // ── Validate that the approver's action is valid for current status ─────────
-  const statusRequiredMap: Record<string, string> = {
-    branch: "submitted",
-    accounts: "branch_approved",
-    owner: "accounts_approved",
-  };
-
-  const requiredStatus = statusRequiredMap[level];
-  if (expense.approval_status !== requiredStatus) {
+  // ── Single-stage approval: only "submitted" can be actioned ────────────
+  if (expense.approval_status !== "submitted") {
     const statusLabel: Record<string, string> = {
       draft: "Draft",
-      submitted: "Submitted (awaiting branch)",
-      branch_approved: "Branch Approved (awaiting accounts)",
-      accounts_approved: "Accounts Approved (awaiting owner)",
-      owner_approved: "Fully Approved",
+      submitted: "Submitted",
+      branch_approved: "Already Approved",
+      accounts_approved: "Already Approved",
+      owner_approved: "Already Approved",
       rejected: "Rejected",
       paid: "Paid",
       paid_direct: "Paid (Direct)",
@@ -124,74 +122,82 @@ export async function POST(req: NextRequest) {
     await sendTelegramMessage(
       botToken,
       chatId,
-      `⚠️ This expense can no longer be actioned at the *${level}* level.\nCurrent status: *${currentLabel}*`
+      `⚠️ This expense can no longer be actioned.\nCurrent status: *${currentLabel}*`
     );
     return new Response("OK", { status: 200 });
   }
 
-  if (action === "approve_expense") {
-    // ── Approve ─────────────────────────────────────────────────────────────
-    const updateMap: Record<string, Record<string, unknown>> = {
-      branch: {
-        approval_status: "branch_approved",
-        branch_approved_by: profile.id,
-        branch_approved_at: new Date().toISOString(),
-      },
-      accounts: {
-        approval_status: "accounts_approved",
-        accounts_approved_by: profile.id,
-        accounts_approved_at: new Date().toISOString(),
-      },
-      owner: {
-        approval_status: "owner_approved",
-        owner_approved_by: profile.id,
-        owner_approved_at: new Date().toISOString(),
-      },
-    };
+  // ── Eligibility (must match the same rule as the web action) ──────────
+  const { isUserEligibleExpenseApprover } = await import("@/lib/queries/expense-approvers");
+  const eligible = await isUserEligibleExpenseApprover(
+    supabase,
+    profile.id,
+    expense.company_id,
+    expense.branch_id ?? null
+  );
+  if (!eligible) {
+    await sendTelegramMessage(
+      botToken,
+      chatId,
+      `🚫 You are not authorised to approve this expense. Only owners, finance controllers, accountants, or this branch's manager can approve.`
+    );
+    return new Response("OK", { status: 200 });
+  }
 
+  const categoryName = (expense.category as { name?: string } | null)?.name || "Expense";
+  const amtFormatted = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(expense.amount);
+
+  if (action === "approve_expense") {
+    const now = new Date().toISOString();
     const { error } = await supabase
       .from("expenses")
-      .update(updateMap[level])
+      .update({
+        approval_status: "owner_approved",
+        owner_approved_by: profile.id,
+        owner_approved_at: now,
+        branch_approved_by: profile.id,
+        branch_approved_at: now,
+        accounts_approved_by: profile.id,
+        accounts_approved_at: now,
+      })
       .eq("id", expenseId)
-      .eq("approval_status", requiredStatus);
+      .eq("approval_status", "submitted");
 
     if (error) {
       await sendTelegramMessage(botToken, chatId, `❌ Failed to approve: ${error.message}`);
       return new Response("OK", { status: 200 });
     }
 
-    const categoryName = (expense.category as { name?: string } | null)?.name || "Expense";
-    const amtFormatted = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(expense.amount);
-
     await sendTelegramMessage(
       botToken,
       chatId,
-      `✅ *Approved!*\n\n*${categoryName}* — ${amtFormatted}\n_${expense.description}_\n\nApproved at ${level} level by *${profile.full_name || "you"}*.`
+      `✅ *Approved!*\n\n*${categoryName}* — ${amtFormatted}\n_${expense.description}_\n\nApproved by *${profile.full_name || "you"}*. Ready for payment.`
     );
-
   } else {
-    // ── Reject ──────────────────────────────────────────────────────────────
     const { error } = await supabase
       .from("expenses")
       .update({
         approval_status: "rejected",
-        rejection_reason: `Rejected via Telegram by ${profile.full_name || "approver"} (${level} level)`,
+        rejection_reason: `Rejected via Telegram by ${profile.full_name || "approver"}`,
+        rejected_by: profile.id,
+        rejected_at: new Date().toISOString(),
       })
       .eq("id", expenseId)
-      .eq("approval_status", requiredStatus);
+      .eq("approval_status", "submitted");
 
     if (error) {
       await sendTelegramMessage(botToken, chatId, `❌ Failed to reject: ${error.message}`);
       return new Response("OK", { status: 200 });
     }
 
-    const categoryName = (expense.category as { name?: string } | null)?.name || "Expense";
-    const amtFormatted = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(expense.amount);
-
     await sendTelegramMessage(
       botToken,
       chatId,
-      `🚫 *Rejected*\n\n*${categoryName}* — ${amtFormatted}\n_${expense.description}_\n\nRejected at ${level} level by *${profile.full_name || "you"}*.`
+      `🚫 *Rejected*\n\n*${categoryName}* — ${amtFormatted}\n_${expense.description}_\n\nRejected by *${profile.full_name || "you"}*.`
     );
   }
 

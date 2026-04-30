@@ -4,12 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Check, X } from "lucide-react";
-import {
-  approveExpenseBranch,
-  approveExpenseAccounts,
-  approveExpenseOwner,
-  rejectExpense,
-} from "@/lib/queries/expenses";
+import { approveExpense, rejectExpense } from "@/lib/queries/expenses";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,15 +20,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type Stage = "branch" | "accounts" | "owner";
-
 interface Props {
   expenseId: string;
-  stage: Stage;
-  stageLabel: string;
 }
 
-export function ExpenseApprovalActions({ expenseId, stage, stageLabel }: Props) {
+export function ExpenseApprovalActions({ expenseId }: Props) {
   const router = useRouter();
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
@@ -46,23 +37,12 @@ export function ExpenseApprovalActions({ expenseId, stage, stageLabel }: Props) 
   async function doApprove() {
     setIsApproving(true);
     try {
-      const action =
-        stage === "branch"
-          ? approveExpenseBranch
-          : stage === "accounts"
-            ? approveExpenseAccounts
-            : approveExpenseOwner;
-
-      const result = await action(expenseId);
+      const result = await approveExpense(expenseId);
       if (result.error) {
         toast.error(result.error);
         return;
       }
-      toast.success(
-        stage === "owner"
-          ? "Expense fully approved — ready for payment"
-          : `Approved at ${stageLabel} — moved to next stage`
-      );
+      toast.success("Expense approved — ready for payment");
       router.push(`/expenses/${expenseId}`);
       router.refresh();
     } catch (err) {
@@ -137,20 +117,17 @@ export function ExpenseApprovalActions({ expenseId, stage, stageLabel }: Props) 
         </div>
 
         <p className="text-xs text-muted-foreground">
-          {stage === "owner"
-            ? "On approval, this expense becomes payable through any cashbook."
-            : "On approval, the next-stage approvers will be notified by Telegram."}
+          One approval is enough — on approval, this expense becomes payable
+          through any cashbook.
         </p>
       </CardContent>
 
       <AlertDialog open={confirmApproveOpen} onOpenChange={setConfirmApproveOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Approve at {stageLabel}?</AlertDialogTitle>
+            <AlertDialogTitle>Approve this expense?</AlertDialogTitle>
             <AlertDialogDescription>
-              {stage === "owner"
-                ? "This will fully approve the expense — it can then be paid via any cashbook."
-                : "This will move the expense to the next approval stage and notify the next approvers."}
+              This fully approves the expense. It can then be paid via any cashbook.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

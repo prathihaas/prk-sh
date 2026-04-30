@@ -1,67 +1,67 @@
 import { CheckCircle2, Circle, XCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type ExpenseApprovalStatus =
-  | "draft"
-  | "submitted"
-  | "branch_approved"
-  | "accounts_approved"
-  | "owner_approved"
-  | "rejected"
-  | "paid"
-  | "paid_direct";
-
 const STAGES = [
-  { key: "submitted", label: "Submitted", description: "Expense entered" },
-  { key: "branch_approved", label: "Branch", description: "Branch manager review" },
-  { key: "accounts_approved", label: "Accounts", description: "Accounts review" },
-  { key: "owner_approved", label: "Owner", description: "Final approval" },
-  { key: "paid", label: "Paid", description: "Payment recorded" },
+  { key: "submitted", label: "Submitted" },
+  { key: "approved", label: "Approved" },
+  { key: "paid", label: "Paid" },
 ] as const;
 
-const ORDER: Record<string, number> = {
-  draft: 0,
-  submitted: 1,
-  branch_approved: 2,
-  accounts_approved: 3,
-  owner_approved: 4,
-  paid: 5,
-  paid_direct: 5,
-};
+/**
+ * Map any expense.approval_status enum value to a position in the simplified
+ * 3-stage flow:
+ *   0 = before submitted (draft)
+ *   1 = submitted (waiting for approval)
+ *   2 = approved (any of branch_/accounts_/owner_approved — single approval is enough)
+ *   3 = paid
+ */
+function stageIndex(status: string): number {
+  switch (status) {
+    case "draft":
+      return 0;
+    case "submitted":
+      return 1;
+    case "branch_approved":
+    case "accounts_approved":
+    case "owner_approved":
+      return 2;
+    case "paid":
+    case "paid_direct":
+      return 3;
+    default:
+      return 0;
+  }
+}
 
 interface Props {
-  status: ExpenseApprovalStatus | string;
+  status: string;
   className?: string;
 }
 
-/**
- * Visual horizontal step indicator for the expense approval flow.
- * Shows where the expense currently is, what's done, and what's pending.
- */
 export function ExpenseApprovalProgress({ status, className }: Props) {
   const isRejected = status === "rejected";
   const isPaidDirect = status === "paid_direct";
-  const currentIndex = ORDER[status] ?? 0;
+  const current = stageIndex(status);
 
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="flex items-center gap-1 sm:gap-2">
+      <div className="flex items-center gap-2 sm:gap-3">
         {STAGES.map((stage, idx) => {
-          const stageIndex = idx + 1; // 1-indexed to match ORDER
-          const isDone = !isRejected && currentIndex >= stageIndex;
-          const isCurrent = !isRejected && currentIndex === stageIndex - 1;
-          const isPending = !isRejected && currentIndex < stageIndex - 1;
+          const stagePos = idx + 1;
+          const isDone = !isRejected && current >= stagePos;
+          const isCurrent = !isRejected && current === stagePos - 1;
+          const isPending = !isRejected && current < stagePos - 1;
 
-          let icon = <Circle className="h-5 w-5" />;
+          let icon = <Circle className="h-6 w-6" />;
           let color = "text-muted-foreground";
           if (isRejected) {
-            icon = idx === 0 ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />;
+            icon = idx === 0 ? <CheckCircle2 className="h-6 w-6" /> : <XCircle className="h-6 w-6" />;
             color = idx === 0 ? "text-green-600" : "text-red-500";
           } else if (isDone) {
-            icon = <CheckCircle2 className="h-5 w-5" />;
+            icon = <CheckCircle2 className="h-6 w-6" />;
             color = "text-green-600";
           } else if (isCurrent) {
-            icon = <Clock className="h-5 w-5 animate-pulse" />;
+            icon = <Clock className="h-6 w-6 animate-pulse" />;
             color = "text-blue-600";
           } else if (isPending) {
             color = "text-muted-foreground/40";
@@ -71,7 +71,7 @@ export function ExpenseApprovalProgress({ status, className }: Props) {
             <div key={stage.key} className="flex items-center flex-1 min-w-0">
               <div className="flex flex-col items-center text-center min-w-0 flex-1">
                 <div className={color}>{icon}</div>
-                <p className={cn("text-[11px] font-medium mt-1 truncate w-full", color)}>
+                <p className={cn("text-xs font-medium mt-1 truncate w-full", color)}>
                   {stage.label}
                 </p>
               </div>
@@ -79,9 +79,7 @@ export function ExpenseApprovalProgress({ status, className }: Props) {
                 <div
                   className={cn(
                     "h-0.5 flex-1 mx-1 sm:mx-2",
-                    !isRejected && currentIndex > stageIndex
-                      ? "bg-green-600"
-                      : "bg-muted"
+                    !isRejected && current > stagePos ? "bg-green-600" : "bg-muted"
                   )}
                 />
               )}
@@ -96,7 +94,7 @@ export function ExpenseApprovalProgress({ status, className }: Props) {
       )}
       {isPaidDirect && (
         <p className="text-xs text-amber-600 text-center font-medium">
-          Paid by cashier without full approval
+          Paid by cashier without approval
         </p>
       )}
     </div>

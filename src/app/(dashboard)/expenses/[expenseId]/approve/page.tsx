@@ -1,9 +1,8 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getUserPermissions } from "@/lib/auth/helpers";
 import { getExpenseWithContext } from "@/lib/queries/expenses";
-import { PERMISSIONS } from "@/lib/constants/permissions";
+import { isUserEligibleExpenseApprover } from "@/lib/queries/expense-approvers";
 import { PageHeader } from "@/components/shared/page-header";
 import { ExpenseApprovalProgress } from "@/components/shared/expense-approval-progress";
 import { ExpenseApprovalActions } from "./expense-approval-actions";
@@ -11,46 +10,6 @@ import { formatINR } from "@/components/shared/currency-display";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-
-type Stage = "branch" | "accounts" | "owner" | null;
-
-function nextStage(status: string): Stage {
-  if (status === "submitted") return "branch";
-  if (status === "branch_approved") return "accounts";
-  if (status === "accounts_approved") return "owner";
-  return null;
-}
-
-const STAGE_LABEL: Record<NonNullable<Stage>, string> = {
-  branch: "Branch Manager Approval",
-  accounts: "Accounts Approval",
-  owner: "Owner / Final Approval",
-};
-
-/**
- * Higher-tier approvers can act on lower-tier stages too.
- * - APPROVE_OWNER  → can approve owner / accounts / branch
- * - APPROVE_ACCOUNTS → can approve accounts / branch
- * - APPROVE_BRANCH → can only approve branch
- *
- * This lets Owners/Admins (who hold APPROVE_OWNER) sign off at any stage —
- * useful when a branch manager is unavailable, etc. The server action itself
- * still enforces the state machine (only the right starting status moves to
- * the right ending status), so an owner can't skip stages — they advance one
- * step at a time.
- */
-const STAGE_PERMS: Record<NonNullable<Stage>, string[]> = {
-  branch: [
-    PERMISSIONS.EXPENSE_APPROVE_BRANCH,
-    PERMISSIONS.EXPENSE_APPROVE_ACCOUNTS,
-    PERMISSIONS.EXPENSE_APPROVE_OWNER,
-  ],
-  accounts: [
-    PERMISSIONS.EXPENSE_APPROVE_ACCOUNTS,
-    PERMISSIONS.EXPENSE_APPROVE_OWNER,
-  ],
-  owner: [PERMISSIONS.EXPENSE_APPROVE_OWNER],
-};
 
 export default async function ApproveExpensePage({
   params,
@@ -63,8 +22,6 @@ export default async function ApproveExpensePage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const permissions = await getUserPermissions(supabase, user.id);
-
   let data;
   try {
     data = await getExpenseWithContext(expenseId);
@@ -73,10 +30,8 @@ export default async function ApproveExpensePage({
   }
 
   const { expense } = data;
-  const stage = nextStage(expense.approval_status);
 
-  // Terminal states: nothing to approve
-  if (!stage) {
+  if (expense.approval_status !== "submitted") {
     return (
       <div className="space-y-6">
         <Button variant="ghost" size="sm" asChild>
@@ -92,7 +47,7 @@ export default async function ApproveExpensePage({
               ? "This expense was rejected — no further approval is possible."
               : expense.approval_status === "draft"
                 ? "This expense is still a draft. The submitter must submit it before approval."
-                : "This expense has already passed all approval stages."
+                : "This expense has already been approved."
           }
         />
         <ExpenseApprovalProgress status={expense.approval_status} />
@@ -100,8 +55,14 @@ export default async function ApproveExpensePage({
     );
   }
 
-  const allowedPerms = STAGE_PERMS[stage];
-  const canApprove = allowedPerms.some((p) => permissions.has(p));
+  const canApprove =
+    expense.submitted_by !== user.id &&
+    (await isUserEligibleExpenseApprover(
+      supabase,
+      user.id,
+      expense.company_id,
+      expense.branch_id ?? null
+    ));
 
   return (
     <div className="space-y-6">
@@ -113,8 +74,8 @@ export default async function ApproveExpensePage({
       </Button>
 
       <PageHeader
-        title={`${STAGE_LABEL[stage]}`}
-        description="Review the expense below, then approve or reject. Approval moves it to the next stage; rejection stops the flow."
+        title="Approve Expense"
+        description="Review the expense below, then approve or reject. One approval is enough — the expense becomes payable immediately."
       />
 
       <Card>
@@ -146,17 +107,13 @@ export default async function ApproveExpensePage({
       </Card>
 
       {canApprove ? (
-        <ExpenseApprovalActions
-          expenseId={expenseId}
-          stage={stage}
-          stageLabel={STAGE_LABEL[stage]}
-        />
+        <ExpenseApprovalActions expenseId={expenseId} />
       ) : (
         <Card>
           <CardContent className="py-6 text-center text-sm text-muted-foreground">
-            You do not have permission to approve this stage ({STAGE_LABEL[stage]}).
-            <br />
-            Required (any of): <code className="font-mono">{allowedPerms.join(", ")}</code>
+            {expense.submitted_by === user.id
+              ? "You can't approve an expense you submitted yourself."
+              : "You are not authorised to approve this expense. Only owners, finance controllers, accountants, or this branch's manager can approve."}
           </CardContent>
         </Card>
       )}

@@ -398,10 +398,11 @@ export function TelegramSettingsForm({
         <CardHeader>
           <CardTitle className="text-lg">Expense Approval Notifications</CardTitle>
           <CardDescription>
-            When an expense reaches each approval stage, every configured approver
-            receives a Telegram message with <strong>Approve</strong> and <strong>Reject</strong> buttons.
-            Any one of them can act on it — the first to respond wins.
-            Add as many approvers per level as you like.
+            <strong>Note:</strong> approval routing is now automatic — every owner,
+            finance controller, accountant (company-wide) and the branch manager
+            (for the expense's branch) receives the Telegram notification and can
+            approve. The settings below are kept for reference / legacy data but
+            are <em>no longer used</em> by the approval flow.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

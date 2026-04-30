@@ -3,14 +3,6 @@
  * Sends inline-keyboard messages so approvers can act directly from Telegram.
  */
 
-export type ExpenseApprovalLevel = "branch" | "accounts" | "owner";
-
-const LEVEL_LABELS: Record<ExpenseApprovalLevel, string> = {
-  branch: "Branch Approval",
-  accounts: "Accounts Approval",
-  owner: "Owner Approval",
-};
-
 interface ExpenseNotifyPayload {
   expenseId: string;
   amount: number;
@@ -32,16 +24,13 @@ function formatINR(amount: number): string {
 
 /**
  * Send an expense approval request to a Telegram chat with Approve / Reject inline buttons.
- * Returns { success: boolean; error?: string }.
+ * Single-stage approval — any eligible approver can act.
  */
 export async function sendExpenseApprovalRequest(
   payload: ExpenseNotifyPayload,
-  approverLevel: ExpenseApprovalLevel,
   botToken: string,
   chatId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const levelLabel = LEVEL_LABELS[approverLevel];
-
   const dateFormatted = new Date(payload.expenseDate).toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "short",
@@ -54,7 +43,6 @@ export async function sendExpenseApprovalRequest(
     `📋 *Expense Approval Required*\n` +
     (contextLine ? `_${contextLine}_\n` : ``) +
     `\n` +
-    `*Level:* ${levelLabel}\n` +
     `*Amount:* ${formatINR(payload.amount)}\n` +
     `*Category:* ${payload.categoryName}\n` +
     `*Description:* ${payload.description}\n` +
@@ -67,11 +55,11 @@ export async function sendExpenseApprovalRequest(
       [
         {
           text: "✅ Approve",
-          callback_data: `approve_expense:${payload.expenseId}:${approverLevel}`,
+          callback_data: `approve_expense:${payload.expenseId}`,
         },
         {
           text: "❌ Reject",
-          callback_data: `reject_expense:${payload.expenseId}:${approverLevel}`,
+          callback_data: `reject_expense:${payload.expenseId}`,
         },
       ],
     ],
