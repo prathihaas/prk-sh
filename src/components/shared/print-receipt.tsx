@@ -19,7 +19,10 @@ interface PrintReceiptProps {
     is_voided: boolean;
     void_reason?: string | null;
     voided_at?: string | null;
+    utr_number?: string | null;
     creator?: { full_name?: string | null } | null;
+    /** The cashbook_day this receipt was posted into — the canonical "receipt date". */
+    day?: { date: string } | null;
   };
   company: {
     name: string;
@@ -42,13 +45,17 @@ export function PrintReceipt({
   branch,
   cashbook,
 }: PrintReceiptProps) {
-  const dateFormatted = new Date(transaction.created_at).toLocaleDateString(
+  // Receipt date = the cashbook_day the txn was posted into (the meaningful
+  // business date, e.g. backdated entries). Fall back to created_at if the
+  // join wasn't loaded for any reason.
+  const receiptDateSource = transaction.day?.date ?? transaction.created_at;
+  const dateFormatted = new Date(receiptDateSource).toLocaleDateString(
     "en-IN",
     { day: "2-digit", month: "short", year: "numeric" }
   );
-  const timeFormatted = new Date(transaction.created_at).toLocaleTimeString(
+  const createdFormatted = new Date(transaction.created_at).toLocaleString(
     "en-IN",
-    { hour: "2-digit", minute: "2-digit" }
+    { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }
   );
   const amountInWords = amountToIndianWords(transaction.amount);
   const paymentMode = transaction.payment_mode
@@ -137,8 +144,11 @@ export function PrintReceipt({
           {company && (
             <h2 className="text-lg font-semibold">{company.name}</h2>
           )}
+          {company?.address && (
+            <p className="text-xs text-gray-700">{company.address}</p>
+          )}
           {branch && (
-            <p className="text-sm font-medium">Branch: {branch.name}</p>
+            <p className="text-sm font-medium mt-1">Branch: {branch.name}</p>
           )}
           {branch?.address && (
             <p className="text-xs text-gray-600">{branch.address}</p>
@@ -158,13 +168,19 @@ export function PrintReceipt({
                 <span className="font-semibold">Receipt No:</span>{" "}
                 <span className="font-mono">{transaction.receipt_number}</span>
               </p>
+              {transaction.utr_number && (
+                <p className="text-sm mt-1">
+                  <span className="font-semibold">UTR / Ref:</span>{" "}
+                  <span className="font-mono">{transaction.utr_number}</span>
+                </p>
+              )}
             </div>
             <div className="text-right">
               <p className="text-sm">
-                <span className="font-semibold">Date:</span> {dateFormatted}
+                <span className="font-semibold">Receipt Date:</span> {dateFormatted}
               </p>
-              <p className="text-sm">
-                <span className="font-semibold">Time:</span> {timeFormatted}
+              <p className="text-xs text-gray-600 mt-0.5">
+                Created: {createdFormatted}
               </p>
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { receiptSchema, type ReceiptFormValues } from "@/lib/validators/receipt";
+import { receiptSchema, validateUtrForMode, type ReceiptFormValues } from "@/lib/validators/receipt";
 import { getCashLimits } from "@/lib/queries/company-configs";
 import { resolveOrCreateCashbookDay } from "@/lib/queries/cashbook-days";
 
@@ -141,6 +141,11 @@ export async function createReceipt(
   if (!values.company_id) return { error: "No company selected. Please select a company in the header." };
   if (!values.branch_id) return { error: "No branch selected. Please select a branch in the header." };
 
+  // UTR cross-field rule: required for upi/bank_transfer/card/finance,
+  // disallowed for cash/cheque.
+  const utrError = validateUtrForMode(validated.payment_mode, validated.utr_number);
+  if (utrError) return { error: utrError };
+
   // Backdate protection: if date is before today and user doesn't have backdate permission, block it
   const today = new Date().toISOString().split("T")[0];
   if (validated.date < today && !values.allow_backdate) {
@@ -201,6 +206,7 @@ export async function createReceipt(
       narration: validated.narration,
       party_name: validated.party_name,
       customer_id: validated.customer_id || null,
+      utr_number: validated.utr_number ?? null,
       receipt_number: "PENDING", // DB trigger generates this
       receipt_hash: "PENDING", // DB trigger generates this
       created_by: values.created_by,
@@ -209,7 +215,17 @@ export async function createReceipt(
     .select("id")
     .single();
 
-  if (error) return { error: error.message };
+  if (error) {
+    // 23505 = unique_violation. The only unique index that can fire here is
+    // the partial uq_cashbook_txn_utr — surface a clear message instead of
+    // the raw "duplicate key value violates unique constraint".
+    if (error.code === "23505" && /utr/i.test(error.message)) {
+      return {
+        error: `This UTR / reference number "${validated.utr_number}" was already used on another receipt. Each UTR must be unique.`,
+      };
+    }
+    return { error: error.message };
+  }
 
   revalidatePath("/cash/receipts");
   revalidatePath("/cash/cashbooks");

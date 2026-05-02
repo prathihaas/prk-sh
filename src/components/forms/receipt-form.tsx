@@ -6,7 +6,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Loader2, IndianRupee, CheckCircle2 } from "lucide-react";
-import { receiptSchema, type ReceiptFormValues } from "@/lib/validators/receipt";
+import { receiptSchema, validateUtrForMode, type ReceiptFormValues } from "@/lib/validators/receipt";
 import { createReceipt } from "@/lib/queries/receipts";
 import { amountToIndianWords } from "@/lib/utils/number-to-words";
 import { formatINR } from "@/components/shared/currency-display";
@@ -91,11 +91,16 @@ export function ReceiptForm({
       amount: 0,
       payment_mode: "cash",
       narration: "",
+      utr_number: "",
     },
   });
 
   const watchAmount = form.watch("amount");
   const customerId = useWatch({ control: form.control, name: "customer_id" });
+  const watchPaymentMode = useWatch({ control: form.control, name: "payment_mode" });
+  const utrApplicable = ["upi", "bank_transfer", "card", "finance"].includes(
+    watchPaymentMode || ""
+  );
 
   function handleCustomerSelect(customer: CustomerOption | null) {
     if (customer) {
@@ -109,6 +114,14 @@ export function ReceiptForm({
     watchAmount > 0 ? amountToIndianWords(watchAmount) : "";
 
   async function onSubmit(values: ReceiptFormValues) {
+    // Cross-field UTR rule lives outside the zod schema (so the inferred form
+    // type stays simple for react-hook-form). Apply it here.
+    const utrError = validateUtrForMode(values.payment_mode, values.utr_number);
+    if (utrError) {
+      form.setError("utr_number", { type: "manual", message: utrError });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const result = await createReceipt({
@@ -328,6 +341,31 @@ export function ReceiptForm({
                 )}
               />
             </div>
+
+            {/* UTR / Reference Number — only for non-cash, non-cheque modes */}
+            {utrApplicable && (
+              <FormField
+                control={form.control}
+                name="utr_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>UTR / Reference Number *</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="12-digit bank UTR or UPI reference"
+                        autoComplete="off"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Required for {watchPaymentMode?.replace(/_/g, " ")}. Must be unique across all receipts.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* Amount in Words (live preview) */}
             {amountInWords && (
