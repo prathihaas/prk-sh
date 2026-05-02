@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { otpMatches } from "@/lib/utils/telegram-otp";
 
 export async function POST(req: NextRequest) {
@@ -15,8 +16,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing session_id or otp" }, { status: 400 });
     }
 
-    // Fetch session
-    const { data: session, error: sessionError } = await supabase
+    // Fetch session via admin: the row's user_id is the manager (OTP recipient),
+    // but the *cashier* is typing the OTP back, so an auth-scoped client would
+    // be blocked by the user_id = auth.uid() select policy. The OTP value
+    // itself is checked server-side and never leaves this endpoint.
+    const { data: session, error: sessionError } = await supabaseAdmin
       .from("otp_sessions")
       .select("*")
       .eq("id", session_id)
@@ -44,8 +48,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ verified: false, error: "Incorrect OTP" }, { status: 400 });
     }
 
-    // Mark session as used
-    await supabase
+    // Mark session as used (admin client — same reason as the SELECT above)
+    await supabaseAdmin
       .from("otp_sessions")
       .update({ used_at: new Date().toISOString() })
       .eq("id", session_id);

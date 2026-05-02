@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { generateOtp, getOtpExpiry, sendTelegramOtp } from "@/lib/utils/telegram-otp";
 
 export async function POST(req: NextRequest) {
@@ -70,8 +71,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Store OTP session in DB (plain text; protected by 5-min TTL + RLS)
-    const { data: session, error: sessionError } = await supabase
+    // Store OTP session in DB. Insert via the admin client because the
+    // session row's user_id is the *manager* (the OTP recipient), not the
+    // caller (the cashier), so RLS would block both the INSERT (in the old
+    // policy) and the implicit SELECT after insert. The cashier already
+    // passed auth above; we only need to materialise the row + return its id.
+    const { data: session, error: sessionError } = await supabaseAdmin
       .from("otp_sessions")
       .insert({
         entity_type,
