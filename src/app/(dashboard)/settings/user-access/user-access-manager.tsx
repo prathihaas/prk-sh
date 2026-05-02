@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import {
   Save, UserCog, CheckSquare, Square, Wallet, RefreshCw,
-  ChevronDown, Building2, GitBranch, ShieldCheck, MessageCircle,
+  ChevronDown, Building2, GitBranch, ShieldCheck, MessageCircle, X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -65,7 +65,7 @@ interface UserAccessManagerProps {
   roles: Role[];
   cashbooks: Cashbook[];
   initialOverrides: Record<string, string[]>;
-  initialCashierAssignments: Record<string, string>;
+  initialCashierAssignments: Record<string, string[]>;
   initialTelegramChatIds: Record<string, string | null>;
   primaryCompanyId: string | null;
 }
@@ -93,8 +93,8 @@ export function UserAccessManager({
   );
   const [isSavingAccess, setIsSavingAccess] = useState(false);
 
-  // Section 2: Cashier cashbook assignment
-  const [cashierAssignments, setCashierAssignments] = useState<Record<string, string>>(initialCashierAssignments);
+  // Section 2: Cashier cashbook assignment (a cashier may hold multiple cashbooks)
+  const [cashierAssignments, setCashierAssignments] = useState<Record<string, string[]>>(initialCashierAssignments);
   const [isSavingCashbooks, setIsSavingCashbooks] = useState(false);
 
   // Section 3: Special permissions
@@ -492,47 +492,105 @@ export function UserAccessManager({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Assign Cashbooks to Cashiers</CardTitle>
-            <CardDescription>Each cashier can only operate on their one assigned cashbook.</CardDescription>
+            <CardDescription>
+              A cashier can be assigned multiple cashbooks. They will see and operate on every one
+              they hold.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {cashierUsers.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">No cashier-level users found.</p>
             ) : (
-              cashierUsers.map((u) => (
-                <div key={u.id} className="flex items-center gap-3 rounded-lg border p-3 flex-wrap">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{u.full_name || u.email || "Unknown"}</p>
-                    {u.full_name && u.email && (
-                      <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+              cashierUsers.map((u) => {
+                const assigned = cashierAssignments[u.id] ?? [];
+                const remaining = cashbooks.filter((c) => !assigned.includes(c.id));
+                return (
+                  <div key={u.id} className="space-y-2 rounded-lg border p-3">
+                    <div>
+                      <p className="text-sm font-medium truncate">{u.full_name || u.email || "Unknown"}</p>
+                      {u.full_name && u.email && (
+                        <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                      )}
+                    </div>
+
+                    {assigned.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {assigned.map((cbId) => {
+                          const cb = cashbooks.find((c) => c.id === cbId);
+                          return (
+                            <Badge
+                              key={cbId}
+                              variant="secondary"
+                              className="gap-1.5 py-1 pl-2.5 pr-1"
+                            >
+                              <span>{cb?.name || cbId}</span>
+                              {cb?.type && (
+                                <span className="text-xs text-muted-foreground capitalize">({cb.type})</span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setCashierAssignments((prev) => {
+                                    const next = (prev[u.id] ?? []).filter((x) => x !== cbId);
+                                    if (next.length === 0) {
+                                      const copy = { ...prev };
+                                      delete copy[u.id];
+                                      return copy;
+                                    }
+                                    return { ...prev, [u.id]: next };
+                                  })
+                                }
+                                className="rounded-sm hover:bg-muted-foreground/20 p-0.5"
+                                aria-label={`Unassign ${cb?.name || cbId}`}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No cashbooks assigned yet.</p>
                     )}
-                  </div>
-                  <Select
-                    value={cashierAssignments[u.id] || "__none__"}
-                    onValueChange={(val) => {
-                      if (val === "__none__") {
-                        setCashierAssignments((prev) => { const n = { ...prev }; delete n[u.id]; return n; });
-                      } else {
-                        setCashierAssignments((prev) => ({ ...prev, [u.id]: val }));
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-56">
-                      <SelectValue placeholder="No cashbook assigned" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">
-                        <span className="text-muted-foreground">No cashbook assigned</span>
-                      </SelectItem>
-                      {cashbooks.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                          <span className="ml-1 text-xs text-muted-foreground capitalize">({c.type})</span>
+
+                    <Select
+                      value="__none__"
+                      onValueChange={(val) => {
+                        if (val === "__none__") return;
+                        setCashierAssignments((prev) => ({
+                          ...prev,
+                          [u.id]: [...(prev[u.id] ?? []), val],
+                        }));
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-72">
+                        <SelectValue
+                          placeholder={
+                            assigned.length === 0
+                              ? "Add a cashbook…"
+                              : remaining.length === 0
+                                ? "All cashbooks assigned"
+                                : "Add another cashbook…"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">
+                          <span className="text-muted-foreground">
+                            {remaining.length === 0 ? "All cashbooks already added" : "Select a cashbook…"}
+                          </span>
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ))
+                        {remaining.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                            <span className="ml-1 text-xs text-muted-foreground capitalize">({c.type})</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })
             )}
             <div className="flex justify-end pt-2">
               <Button onClick={saveCashierAssignments} disabled={isSavingCashbooks} size="sm" className="gap-2">

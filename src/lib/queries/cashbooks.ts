@@ -84,17 +84,37 @@ export async function getCashbooks(
 }
 
 /**
+ * Parse the stored cashier-cashbook assignment config into a uniform
+ * `{ userId: cashbookId[] }` shape. Accepts the legacy
+ * `{ userId: cashbookId }` form (single id) and the new `{ userId: string[] }`
+ * form (multiple ids), so existing data keeps working.
+ */
+export function parseCashierCashbookAssignments(
+  raw: unknown
+): Record<string, string[]> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, string[]> = {};
+  for (const [userId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (Array.isArray(value)) {
+      out[userId] = value.filter((v): v is string => typeof v === "string" && v.length > 0);
+    } else if (typeof value === "string" && value.length > 0) {
+      out[userId] = [value];
+    }
+  }
+  return out;
+}
+
+/**
  * Get cashbooks with per-user access enforcement:
  *
- * - CASHIERS (hierarchy_level >= 5): see ONLY the single cashbook assigned to them
- *   in company_configs["cashier_cashbook_assignments"][userId].
- *   If no assignment, they see nothing (cannot operate without being assigned).
+ * - CASHIERS (hierarchy_level >= 5): see only the cashbooks assigned to them
+ *   in company_configs["cashier_cashbook_assignments"][userId]. The map can
+ *   hold multiple cashbook ids per cashier (a string[] value).
+ *   If no assignment, they see nothing.
  *
  * - MANAGERS & ABOVE (hierarchy_level < 5): see ALL cashbooks for their scope.
  *
  * - BANK accounts: always company-wide, visible to everyone with CASHBOOK_READ.
- *   No cashier restriction on bank visibility (but they can't transact in banks
- *   if not assigned there).
  */
 export async function getCashbooksForUser(
   companyId: string,
@@ -105,12 +125,10 @@ export async function getCashbooksForUser(
 ) {
   const supabase = await createClient();
 
-  // Banks are always company-wide — no per-user restriction on viewing
   if (typeFilter === "bank") {
     return getCashbooks(companyId, null, "bank");
   }
 
-  // Cashier level: show only their assigned cashbook
   const isCashierLevel = userHierarchyLevel >= 5;
   if (isCashierLevel) {
     const { data: config } = await supabase
@@ -120,29 +138,15 @@ export async function getCashbooksForUser(
       .eq("config_key", "cashier_cashbook_assignments")
       .single();
 
-    let assignedCashbookId: string | null = null;
-    if (config?.config_value) {
-      try {
-        const assignments: Record<string, string> =
-          typeof config.config_value === "object"
-            ? (config.config_value as Record<string, string>)
-            : JSON.parse(String(config.config_value));
-        assignedCashbookId = assignments[userId] || null;
-      } catch {
-        assignedCashbookId = null;
-      }
-    }
+    const assignments = parseCashierCashbookAssignments(config?.config_value);
+    const assignedIds = assignments[userId] ?? [];
 
-    if (!assignedCashbookId) {
-      // No cashbook assigned to this cashier — return empty list
-      return [];
-    }
+    if (assignedIds.length === 0) return [];
 
-    // Return only the assigned cashbook (must belong to this company)
     const { data, error } = await supabase
       .from("cashbooks")
       .select("*")
-      .eq("id", assignedCashbookId)
+      .in("id", assignedIds)
       .eq("company_id", companyId)
       .in("type", ["main", "petty"]);
 
@@ -150,7 +154,6 @@ export async function getCashbooksForUser(
     return data || [];
   }
 
-  // Managers and above: standard full access (pass typeFilter as-is, null = all types)
   return getCashbooks(companyId, branchId, typeFilter ?? null);
 }
 

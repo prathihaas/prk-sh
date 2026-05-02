@@ -185,13 +185,26 @@ export default async function UserAccessPage() {
         .eq("config_key", "cashier_cashbook_assignments")
     : { data: [] };
 
-  const mergedCashierAssignments: Record<string, string> = {};
+  // Each value is either a single cashbook id (legacy) or an array of ids
+  // (new multi-cashbook form). Normalise to string[] here.
+  const mergedCashierAssignments: Record<string, string[]> = {};
   for (const cfg of cashbookConfigs || []) {
     try {
       const val = typeof cfg.config_value === "object" && !Array.isArray(cfg.config_value)
-        ? (cfg.config_value as Record<string, string>)
-        : JSON.parse(String(cfg.config_value));
-      Object.assign(mergedCashierAssignments, val);
+        ? (cfg.config_value as Record<string, unknown>)
+        : (JSON.parse(String(cfg.config_value)) as Record<string, unknown>);
+      for (const [uid, raw] of Object.entries(val)) {
+        const ids = Array.isArray(raw)
+          ? raw.filter((v): v is string => typeof v === "string" && v.length > 0)
+          : typeof raw === "string" && raw
+            ? [raw]
+            : [];
+        if (ids.length > 0) {
+          mergedCashierAssignments[uid] = Array.from(
+            new Set([...(mergedCashierAssignments[uid] || []), ...ids])
+          );
+        }
+      }
     } catch { /* skip */ }
   }
 

@@ -1,17 +1,31 @@
 /**
  * POST /api/settings/cashier-cashbooks
  * Save cashier-to-cashbook assignments for a company (session auth only).
- * Body: { company_id: string, assignments: Record<string, string> }
+ * Body: { company_id: string, assignments: Record<string, string | string[]> }
  *
- * The assignments map is: { user_id: cashbook_id }
- * Cashiers (hierarchy_level >= 5) can only access their one assigned cashbook.
- * Managers and above are not affected by this map.
+ * The assignments map is: { user_id: cashbook_id[] }. For backward compat the
+ * value may also be a single cashbook_id string — it is normalised to a
+ * one-element array on save.
+ *
+ * Cashiers (hierarchy_level >= 5) can only access the cashbooks listed
+ * against their user_id. Managers and above are not affected by this map.
  */
 
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPermissions } from "@/lib/auth/helpers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
+
+function uniqueNonEmpty(arr: unknown): string[] {
+  if (!Array.isArray(arr)) return [];
+  const out: string[] = [];
+  for (const v of arr) {
+    if (typeof v === "string" && v.trim().length > 0 && !out.includes(v.trim())) {
+      out.push(v.trim());
+    }
+  }
+  return out;
+}
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -23,7 +37,6 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Only admins who can manage users may set cashier assignments
   const permissions = await getUserPermissions(supabase, user.id);
   if (!permissions.has(PERMISSIONS.ADMIN_MANAGE_USERS)) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -36,28 +49,30 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "company_id required" }, { status: 400 });
   }
   if (!assignments || typeof assignments !== "object" || Array.isArray(assignments)) {
-    return Response.json({ error: "assignments must be an object mapping user_id → cashbook_id" }, { status: 400 });
+    return Response.json(
+      { error: "assignments must be an object mapping user_id → cashbook_id[]" },
+      { status: 400 }
+    );
   }
 
-  // Validate: all values must be non-empty strings (cashbook IDs) or we skip them
-  const cleaned: Record<string, string> = {};
-  for (const [userId, cashbookId] of Object.entries(assignments)) {
-    if (typeof cashbookId === "string" && cashbookId.trim().length > 0) {
-      // Verify the cashbook belongs to this company before saving
-      const { data: cb } = await supabase
-        .from("cashbooks")
-        .select("id")
-        .eq("id", cashbookId.trim())
-        .eq("company_id", company_id)
-        .in("type", ["main", "petty"])
-        .single();
+  // Normalise each value to string[] (accept single string for back-compat),
+  // dedupe, then validate every cashbook id belongs to this company.
+  const cleaned: Record<string, string[]> = {};
+  for (const [userId, raw] of Object.entries(assignments)) {
+    const candidate =
+      Array.isArray(raw) ? raw : typeof raw === "string" && raw ? [raw] : [];
+    const ids = uniqueNonEmpty(candidate);
+    if (ids.length === 0) continue;
 
-      if (cb) {
-        cleaned[userId] = cashbookId.trim();
-      }
-      // If cashbook not found / wrong company, silently drop this assignment
-    }
-    // If cashbookId is empty/null, skip → effectively removes the assignment
+    const { data: validCashbooks } = await supabase
+      .from("cashbooks")
+      .select("id")
+      .in("id", ids)
+      .eq("company_id", company_id)
+      .in("type", ["main", "petty"]);
+
+    const validIds = (validCashbooks || []).map((c: { id: string }) => c.id);
+    if (validIds.length > 0) cleaned[userId] = validIds;
   }
 
   const { error } = await supabase
@@ -75,8 +90,9 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
+  const totalLinks = Object.values(cleaned).reduce((n, arr) => n + arr.length, 0);
   return Response.json({
     success: true,
-    message: `Saved cashbook assignments for ${Object.keys(cleaned).length} cashier(s)`,
+    message: `Saved ${totalLinks} cashbook link(s) across ${Object.keys(cleaned).length} cashier(s)`,
   });
 }
