@@ -16,8 +16,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Get target user's Telegram chat ID
-    const { data: targetUser, error: userError } = await supabase
+    // Get target user's Telegram chat ID via the admin client.
+    // The caller is usually a cashier closing their day, and RLS on
+    // user_profiles hides other users' rows from a cashier — so an
+    // auth-scoped client returned no row and the route reported
+    // "target user doesn't have a Telegram chat ID" even when one was set.
+    // Owners have wildcard scope so the original code worked for them.
+    const { data: targetUser, error: userError } = await supabaseAdmin
       .from("user_profiles")
       .select("telegram_chat_id, full_name")
       .eq("id", target_user_id)
