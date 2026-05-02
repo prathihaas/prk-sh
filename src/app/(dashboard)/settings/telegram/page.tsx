@@ -5,7 +5,6 @@ import { getUserPermissions } from "@/lib/auth/helpers";
 import { PERMISSIONS } from "@/lib/constants/permissions";
 import { PageHeader } from "@/components/shared/page-header";
 import {
-  getTelegramBotToken,
   getTelegramDayCloseConfig,
   getTelegramExpenseApprovers,
 } from "@/lib/queries/company-configs";
@@ -24,8 +23,7 @@ export default async function TelegramSettingsPage() {
   if (!companyId) redirect("/settings");
 
   // Load all data in parallel
-  const [botToken, dayCloseConfig, expenseApprovers] = await Promise.all([
-    getTelegramBotToken(companyId),
+  const [dayCloseConfig, expenseApprovers] = await Promise.all([
     getTelegramDayCloseConfig(companyId),
     getTelegramExpenseApprovers(companyId),
   ]);
@@ -74,25 +72,19 @@ export default async function TelegramSettingsPage() {
   }));
 
   // Build app URL for webhook registration display
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "https://your-app.vercel.app";
-
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Telegram Bot Settings"
-        description="Configure your Telegram bot for day-close OTP approvals and expense notifications"
+        title="Telegram Notifications"
+        description="Choose who gets day-close OTPs and expense approval messages from @Prakashgroupbot"
       />
       <TelegramSettingsForm
         companyId={companyId}
-        initialBotToken={botToken || ""}
         initialDayCloseConfig={dayCloseConfig}
         initialExpenseApprovers={expenseApprovers}
         users={users}
         branches={branches}
         cashbooks={cashbooks}
-        webhookUrl={`${appUrl}/api/telegram/webhook`}
       />
     </div>
   );

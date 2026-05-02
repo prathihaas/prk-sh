@@ -8,8 +8,10 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+// telegram_bot_token is intentionally NOT writable through the UI: a single
+// shared @Prakashgroupbot token is managed centrally so admins can't break
+// the integration by pasting in a different bot.
 const ALLOWED_KEYS = new Set([
-  "telegram_bot_token",
   "telegram_day_close",
   "telegram_expense_approvers",
 ]);

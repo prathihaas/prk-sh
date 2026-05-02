@@ -3,11 +3,10 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import {
-  Save, RefreshCw, MessageCircle, Copy, CheckCircle2,
-  ChevronDown, ChevronUp, Info, X,
+  Save, RefreshCw, MessageCircle,
+  ChevronDown, ChevronUp, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -31,32 +30,21 @@ interface Cashbook { id: string; name: string; branch_id: string | null }
 
 interface TelegramSettingsFormProps {
   companyId: string;
-  initialBotToken: string;
   initialDayCloseConfig: TelegramDayCloseConfig;
   initialExpenseApprovers: TelegramExpenseApprovers;
   users: User[];
   branches: Branch[];
   cashbooks: Cashbook[];
-  webhookUrl: string;
 }
 
 export function TelegramSettingsForm({
   companyId,
-  initialBotToken,
   initialDayCloseConfig,
   initialExpenseApprovers,
   users,
   branches,
   cashbooks,
-  webhookUrl,
 }: TelegramSettingsFormProps) {
-  // ── Bot Token ────────────────────────────────────────────────────────
-  const [botToken, setBotToken] = useState(initialBotToken);
-  const [isSavingToken, setIsSavingToken] = useState(false);
-  const [isRegisteringWebhook, setIsRegisteringWebhook] = useState(false);
-  const [showGuide, setShowGuide] = useState(!initialBotToken);
-  const [copied, setCopied] = useState(false);
-
   // ── Day-Close Managers ────────────────────────────────────────────────
   const [dayCloseConfig, setDayCloseConfig] = useState<TelegramDayCloseConfig>(initialDayCloseConfig);
   const [isSavingDayClose, setIsSavingDayClose] = useState(false);
@@ -71,50 +59,6 @@ export function TelegramSettingsForm({
   function userLabel(u: User) {
     const name = u.full_name || u.email || "Unknown";
     return u.has_telegram ? name : `${name} (no Telegram)`;
-  }
-
-  function copyWebhookUrl() {
-    navigator.clipboard.writeText(webhookUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  // ── Save handlers ─────────────────────────────────────────────────────
-  async function saveBotToken() {
-    if (!botToken.trim()) { toast.error("Bot token cannot be empty"); return; }
-    setIsSavingToken(true);
-    try {
-      const res = await fetch("/api/telegram/save-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company_id: companyId, config_key: "telegram_bot_token", config_value: botToken.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save");
-      toast.success("Bot token saved");
-    } catch (err) {
-      toast.error(String(err instanceof Error ? err.message : err));
-    } finally {
-      setIsSavingToken(false);
-    }
-  }
-
-  async function registerWebhook() {
-    setIsRegisteringWebhook(true);
-    try {
-      const res = await fetch("/api/telegram/set-webhook", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company_id: companyId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to register webhook");
-      toast.success("Webhook registered with Telegram ✓");
-    } catch (err) {
-      toast.error(String(err instanceof Error ? err.message : err));
-    } finally {
-      setIsRegisteringWebhook(false);
-    }
   }
 
   async function saveDayCloseConfig() {
@@ -179,83 +123,28 @@ export function TelegramSettingsForm({
   return (
     <div className="space-y-8 max-w-3xl">
 
-      {/* ── Section 1: Bot Token ────────────────────────────────────────── */}
+      {/* ── Section 1: Bot Status (read-only) ──────────────────────────── */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             <MessageCircle className="h-5 w-5 text-blue-500" />
-            <CardTitle className="text-lg">Bot Token</CardTitle>
+            <CardTitle className="text-lg">Bot</CardTitle>
           </div>
           <CardDescription>
-            Create a Telegram bot via @BotFather and paste the API token here.
+            All Telegram messages from this app go through{" "}
+            <span className="font-mono font-medium">@Prakashgroupbot</span>.
+            The token is managed centrally and cannot be changed from the UI.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              value={botToken}
-              onChange={(e) => setBotToken(e.target.value)}
-              placeholder="1234567890:ABCdef..."
-              className="font-mono text-sm"
-              type="password"
-            />
-            <Button onClick={saveBotToken} disabled={isSavingToken} className="shrink-0 gap-2">
-              {isSavingToken ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save
-            </Button>
+        <CardContent className="space-y-3">
+          <div className="rounded-lg border bg-green-50 dark:bg-green-950/30 p-3 text-sm space-y-1.5 text-green-800 dark:text-green-200">
+            <p className="font-medium">For each user who needs Telegram OTPs / approvals:</p>
+            <ol className="list-decimal list-inside text-xs space-y-1">
+              <li>Open Telegram → search <span className="font-mono">@Prakashgroupbot</span> → press <strong>Start</strong>.</li>
+              <li>Search <span className="font-mono">@userinfobot</span> → press Start. It replies with a numeric Id.</li>
+              <li>Paste that Id into the user&apos;s Telegram Chat ID under <strong>User Access Controls</strong>.</li>
+            </ol>
           </div>
-
-          {/* Webhook URL + register button */}
-          <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Webhook URL</p>
-            <div className="flex gap-2 items-center">
-              <code className="text-xs flex-1 truncate font-mono bg-background px-2 py-1 rounded border">
-                {webhookUrl}
-              </code>
-              <Button variant="outline" size="sm" onClick={copyWebhookUrl} className="shrink-0 gap-1">
-                {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
-                {copied ? "Copied" : "Copy"}
-              </Button>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={registerWebhook}
-              disabled={isRegisteringWebhook || !botToken}
-              className="w-full gap-2"
-            >
-              {isRegisteringWebhook ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <MessageCircle className="h-3.5 w-3.5" />}
-              Register Webhook with Telegram
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Click after saving your bot token. This tells Telegram where to deliver messages and button presses.
-            </p>
-          </div>
-
-          {/* Setup guide */}
-          <button
-            onClick={() => setShowGuide((v) => !v)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Info className="h-3.5 w-3.5" />
-            {showGuide ? "Hide" : "Show"} setup guide
-            {showGuide ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          </button>
-          {showGuide && (
-            <div className="rounded-lg border bg-blue-50 dark:bg-blue-950/30 p-4 text-sm space-y-2">
-              <p className="font-semibold text-blue-800 dark:text-blue-200">Quick Setup</p>
-              <ol className="space-y-1.5 text-blue-700 dark:text-blue-300 list-decimal list-inside">
-                <li>Open Telegram and search for <span className="font-mono font-medium">@BotFather</span></li>
-                <li>Send <span className="font-mono font-medium">/newbot</span> and follow prompts to create a bot</li>
-                <li>Copy the API token (looks like <span className="font-mono">1234567890:ABC...</span>) and paste above</li>
-                <li>Click <strong>Save</strong> then <strong>Register Webhook</strong></li>
-                <li>Go to <strong>User Access Controls</strong> and enter each manager&apos;s Telegram Chat ID
-                  <br /><span className="text-xs">(Ask them to message <span className="font-mono">@userinfobot</span> — it replies with their numeric ID)</span>
-                </li>
-                <li>Configure which manager to notify below</li>
-              </ol>
-            </div>
-          )}
         </CardContent>
       </Card>
 
