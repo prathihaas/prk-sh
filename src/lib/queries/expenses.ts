@@ -31,10 +31,14 @@ async function notifyExpenseApprovers(
 ): Promise<void> {
   try {
     const supabase = await createClient();
+    // Use admin to discover approvers and read their telegram_chat_id —
+    // the submitter (often a cashier) cannot see other users' assignments
+    // or chat ids under RLS, which would silently drop the fan-out.
+    const { supabaseAdmin } = await import("@/lib/supabase/admin");
 
     const [botToken, approvers] = await Promise.all([
       getTelegramBotToken(companyId),
-      getEligibleExpenseApprovers(supabase, companyId, branchId),
+      getEligibleExpenseApprovers(supabaseAdmin, companyId, branchId),
     ]);
 
     if (!botToken) return;

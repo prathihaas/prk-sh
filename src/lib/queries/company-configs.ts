@@ -320,10 +320,13 @@ export async function getTelegramDayCloseManager(
   branchId?: string | null,
   cashbookId?: string | null
 ): Promise<{ userId: string; userName: string; chatId: string } | null> {
-  const [config, supabase] = await Promise.all([
-    getTelegramDayCloseConfig(companyId),
-    createClient(),
-  ]);
+  // Use admin to read user_profiles: the caller (cashier) cannot see other
+  // users' rows under RLS, so a regular client returned no profile and the
+  // page silently treated 'no manager configured' as 'no OTP needed' —
+  // letting the cashier close the day without OTP even when a manager was
+  // configured.
+  const { supabaseAdmin } = await import("@/lib/supabase/admin");
+  const config = await getTelegramDayCloseConfig(companyId);
 
   let managerId: string | null = config.company_manager_id;
 
@@ -336,7 +339,7 @@ export async function getTelegramDayCloseManager(
 
   if (!managerId) return null;
 
-  const { data: profile } = await supabase
+  const { data: profile } = await supabaseAdmin
     .from("user_profiles")
     .select("id, full_name, telegram_chat_id")
     .eq("id", managerId)
