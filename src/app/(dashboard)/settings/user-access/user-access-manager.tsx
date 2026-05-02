@@ -15,7 +15,7 @@ import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue, SelectSeparator,
 } from "@/components/ui/select";
 
 // Special permissions that can be granted per-user beyond their role
@@ -504,6 +504,14 @@ export function UserAccessManager({
               cashierUsers.map((u) => {
                 const assigned = cashierAssignments[u.id] ?? [];
                 const remaining = cashbooks.filter((c) => !assigned.includes(c.id));
+                // Group the dropdown options by company so the picker stops
+                // looking like one long ambiguous list.
+                const remainingByCompany = companies
+                  .map((co) => ({
+                    company: co,
+                    items: remaining.filter((c) => c.company_id === co.id),
+                  }))
+                  .filter((g) => g.items.length > 0);
                 return (
                   <div key={u.id} className="space-y-2 rounded-lg border p-3">
                     <div>
@@ -514,40 +522,52 @@ export function UserAccessManager({
                     </div>
 
                     {assigned.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {assigned.map((cbId) => {
-                          const cb = cashbooks.find((c) => c.id === cbId);
-                          return (
-                            <Badge
-                              key={cbId}
-                              variant="secondary"
-                              className="gap-1.5 py-1 pl-2.5 pr-1"
-                            >
-                              <span>{cb?.name || cbId}</span>
-                              {cb?.type && (
-                                <span className="text-xs text-muted-foreground capitalize">({cb.type})</span>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setCashierAssignments((prev) => {
-                                    const next = (prev[u.id] ?? []).filter((x) => x !== cbId);
-                                    if (next.length === 0) {
-                                      const copy = { ...prev };
-                                      delete copy[u.id];
-                                      return copy;
-                                    }
-                                    return { ...prev, [u.id]: next };
-                                  })
-                                }
-                                className="rounded-sm hover:bg-muted-foreground/20 p-0.5"
-                                aria-label={`Unassign ${cb?.name || cbId}`}
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </Badge>
-                          );
-                        })}
+                      <div className="space-y-2">
+                        {companies
+                          .map((co) => ({
+                            company: co,
+                            items: assigned
+                              .map((id) => cashbooks.find((c) => c.id === id))
+                              .filter((cb): cb is NonNullable<typeof cb> => !!cb && cb.company_id === co.id),
+                          }))
+                          .filter((g) => g.items.length > 0)
+                          .map((g) => (
+                            <div key={g.company.id} className="space-y-1">
+                              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                {g.company.name}
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {g.items.map((cb) => (
+                                  <Badge
+                                    key={cb.id}
+                                    variant="secondary"
+                                    className="gap-1.5 py-1 pl-2.5 pr-1"
+                                  >
+                                    <span>{cb.name}</span>
+                                    <span className="text-xs text-muted-foreground capitalize">({cb.type})</span>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setCashierAssignments((prev) => {
+                                          const next = (prev[u.id] ?? []).filter((x) => x !== cb.id);
+                                          if (next.length === 0) {
+                                            const copy = { ...prev };
+                                            delete copy[u.id];
+                                            return copy;
+                                          }
+                                          return { ...prev, [u.id]: next };
+                                        })
+                                      }
+                                      className="rounded-sm hover:bg-muted-foreground/20 p-0.5"
+                                      aria-label={`Unassign ${cb.name}`}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground">No cashbooks assigned yet.</p>
@@ -580,11 +600,23 @@ export function UserAccessManager({
                             {remaining.length === 0 ? "All cashbooks already added" : "Select a cashbook…"}
                           </span>
                         </SelectItem>
-                        {remaining.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                            <span className="ml-1 text-xs text-muted-foreground capitalize">({c.type})</span>
-                          </SelectItem>
+                        {remainingByCompany.map((g, idx) => (
+                          <div key={g.company.id}>
+                            {idx > 0 && <SelectSeparator />}
+                            <SelectGroup>
+                              <SelectLabel className="text-xs uppercase tracking-wide text-muted-foreground">
+                                {g.company.name}
+                              </SelectLabel>
+                              {g.items.map((c) => (
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.name}
+                                  <span className="ml-1 text-xs text-muted-foreground capitalize">
+                                    ({c.type})
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </div>
                         ))}
                       </SelectContent>
                     </Select>
