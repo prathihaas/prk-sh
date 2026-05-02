@@ -6,6 +6,7 @@ import {
   cashbookSchema,
   type CashbookFormValues,
 } from "@/lib/validators/cashbook";
+import { parseCashierCashbookAssignments } from "@/lib/utils/cashier-cashbook-assignments";
 
 /**
  * Get cashbooks for a company/branch.
@@ -81,27 +82,6 @@ export async function getCashbooks(
     .order("name");
   if (error) throw error;
   return data || [];
-}
-
-/**
- * Parse the stored cashier-cashbook assignment config into a uniform
- * `{ userId: cashbookId[] }` shape. Accepts the legacy
- * `{ userId: cashbookId }` form (single id) and the new `{ userId: string[] }`
- * form (multiple ids), so existing data keeps working.
- */
-export function parseCashierCashbookAssignments(
-  raw: unknown
-): Record<string, string[]> {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const out: Record<string, string[]> = {};
-  for (const [userId, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (Array.isArray(value)) {
-      out[userId] = value.filter((v): v is string => typeof v === "string" && v.length > 0);
-    } else if (typeof value === "string" && value.length > 0) {
-      out[userId] = [value];
-    }
-  }
-  return out;
 }
 
 /**
