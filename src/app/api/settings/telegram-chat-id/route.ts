@@ -83,6 +83,65 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Verify the chat id is reachable: ask Telegram via the bot of one of the
+  // user's assigned companies. If Telegram returns "chat not found" we bail
+  // here so the admin sees a clear message instead of OTPs silently failing.
+  if (cleanChatId) {
+    const { data: assignments } = await supabase
+      .from("user_assignments")
+      .select("company_id, group_id")
+      .eq("user_id", user_id)
+      .eq("is_active", true);
+
+    const companyIds = Array.from(
+      new Set((assignments || []).map((a: { company_id: string | null }) => a.company_id).filter(Boolean))
+    ) as string[];
+
+    let botToken: string | null = null;
+    if (companyIds.length > 0) {
+      const { data: tokens } = await supabase
+        .from("company_configs")
+        .select("config_value")
+        .eq("config_key", "telegram_bot_token")
+        .in("company_id", companyIds);
+      botToken = ((tokens || [])[0]?.config_value as string) || null;
+    }
+    if (!botToken) {
+      // Fall back to any configured bot token in the system
+      const { data: anyToken } = await supabase
+        .from("company_configs")
+        .select("config_value")
+        .eq("config_key", "telegram_bot_token")
+        .limit(1)
+        .maybeSingle();
+      botToken = (anyToken?.config_value as string) || null;
+    }
+
+    if (botToken) {
+      try {
+        const res = await fetch(
+          `https://api.telegram.org/bot${botToken}/getChat?chat_id=${encodeURIComponent(cleanChatId)}`,
+          { method: "GET" }
+        );
+        const json = (await res.json()) as { ok: boolean; description?: string };
+        if (!json.ok) {
+          const desc = json.description || "Telegram rejected the chat id";
+          return Response.json(
+            {
+              error:
+                `Telegram says "${desc}". Two things need to be true:\n` +
+                `1. The number must be the user's Telegram numeric ID (open Telegram, message @userinfobot — it replies with the ID). Phone numbers are NOT chat IDs.\n` +
+                `2. The user must first send /start to your company's bot at least once, otherwise the bot cannot DM them.`,
+            },
+            { status: 400 }
+          );
+        }
+      } catch {
+        // Network blip — don't block the save, just skip verification
+      }
+    }
+  }
+
   const { error } = await supabase
     .from("user_profiles")
     .update({ telegram_chat_id: cleanChatId })
