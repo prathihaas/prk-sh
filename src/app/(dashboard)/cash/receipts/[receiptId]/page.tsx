@@ -46,7 +46,7 @@ export default async function ReceiptDetailPage({
     notFound();
   }
 
-  const dateFormatted = new Date(transaction.created_at).toLocaleString(
+  const createdFormatted = new Date(transaction.created_at).toLocaleString(
     "en-IN",
     {
       day: "2-digit",
@@ -56,6 +56,13 @@ export default async function ReceiptDetailPage({
       minute: "2-digit",
     }
   );
+  const receiptDateFormatted = transaction.day?.date
+    ? new Date(transaction.day.date).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : null;
 
   return (
     <div className="space-y-6">
@@ -119,9 +126,15 @@ export default async function ReceiptDetailPage({
                   status={transaction.is_voided ? "voided" : "active"}
                 />
               </div>
+              {receiptDateFormatted && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Receipt Date</span>
+                  <span className="font-medium">{receiptDateFormatted}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Created</span>
-                <span>{dateFormatted}</span>
+                <span className="text-muted-foreground">{createdFormatted}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Type</span>

@@ -25,6 +25,8 @@ export type ReceiptRow = {
   narration: string;
   is_voided: boolean;
   created_at: string;
+  /** Receipt date — the cashbook_day this transaction was posted into. */
+  day?: { date: string } | null;
   creator?: { id: string; full_name: string | null; email: string | null } | null;
 };
 
@@ -44,16 +46,38 @@ export const receiptColumns: ColumnDef<ReceiptRow>[] = [
     ),
   },
   {
+    id: "receipt_date",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Receipt Date" />
+    ),
+    cell: ({ row }) => {
+      const dayDate = row.original.day?.date;
+      return (
+        <span className="text-sm font-medium">
+          {dayDate
+            ? new Date(dayDate).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+            : "—"}
+        </span>
+      );
+    },
+  },
+  {
     accessorKey: "created_at",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Date" />
+      <DataTableColumnHeader column={column} title="Created" />
     ),
     cell: ({ row }) => (
-      <span className="text-sm">
-        {new Date(row.getValue("created_at")).toLocaleDateString("en-IN", {
+      <span className="text-xs text-muted-foreground">
+        {new Date(row.getValue("created_at")).toLocaleString("en-IN", {
           day: "2-digit",
           month: "short",
           year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
         })}
       </span>
     ),

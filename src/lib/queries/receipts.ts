@@ -20,7 +20,8 @@ export async function getReceipts(
     .select(`
       *,
       creator:user_profiles!cashbook_transactions_created_by_fkey(id, full_name, email),
-      cashbook:cashbooks!cashbook_transactions_cashbook_id_fkey(id, name)
+      cashbook:cashbooks!cashbook_transactions_cashbook_id_fkey(id, name),
+      day:cashbook_days!cashbook_transactions_cashbook_day_id_fkey(date)
     `)
     .eq("txn_type", "receipt")
     .eq("company_id", companyId)
@@ -66,10 +67,14 @@ function formatAddress(address: unknown): string | null {
 export async function getReceiptWithContext(id: string) {
   const supabase = await createClient();
 
-  // Get the transaction with creator info
+  // Get the transaction with creator info + the cashbook_day's date so the
+  // detail page can show "Receipt Date" (the day the txn was posted into)
+  // alongside the server-side "Created" timestamp.
   const { data: transaction, error: txnError } = await supabase
     .from("cashbook_transactions")
-    .select("*, creator:user_profiles!cashbook_transactions_created_by_fkey(id, full_name)")
+    .select(
+      "*, creator:user_profiles!cashbook_transactions_created_by_fkey(id, full_name), day:cashbook_days!cashbook_transactions_cashbook_day_id_fkey(date)"
+    )
     .eq("id", id)
     .single();
 

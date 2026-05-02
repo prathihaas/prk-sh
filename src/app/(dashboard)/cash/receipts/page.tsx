@@ -13,7 +13,8 @@ import { receiptColumns } from "./columns";
 
 const RECEIPT_EXPORT_COLUMNS = [
   { key: "receipt_number", header: "Receipt No", width: 18 },
-  { key: "created_at", header: "Date", width: 20, format: "date" as const },
+  { key: "receipt_date", header: "Receipt Date", width: 16, format: "date" as const },
+  { key: "created_at", header: "Created", width: 20, format: "date" as const },
   { key: "party_name", header: "Received From", width: 28 },
   { key: "amount", header: "Amount (INR)", width: 16, format: "currency" as const },
   { key: "payment_mode", header: "Payment Mode", width: 16 },
@@ -69,8 +70,10 @@ export default async function ReceiptsPage({
   const exportData = (receipts as Record<string, unknown>[]).map((r) => {
     const creator = r.creator as { full_name?: string } | null;
     const cashbook = r.cashbook as { name?: string } | null;
+    const day = r.day as { date?: string } | null;
     return {
       ...r,
+      receipt_date: day?.date || "",
       created_by_name: creator?.full_name || "",
       cashbook_name: cashbook?.name || "",
       status_label: r.is_voided ? "Voided" : "Active",
