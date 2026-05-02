@@ -111,7 +111,14 @@ export async function getCashbooksForUser(
 
   const isCashierLevel = userHierarchyLevel >= 5;
   if (isCashierLevel) {
-    const { data: config } = await supabase
+    // Use the admin client for both lookups: the cashbook RLS policy filters
+    // by the caller's accessible branches, so a cashier whose admin assigned
+    // them cashbooks across two branches in the same company would only see
+    // the one matching their branch scope. The assignment config is the
+    // authoritative gate — admin granted it, we honour it.
+    const { supabaseAdmin } = await import("@/lib/supabase/admin");
+
+    const { data: config } = await supabaseAdmin
       .from("company_configs")
       .select("config_value")
       .eq("company_id", companyId)
@@ -123,7 +130,7 @@ export async function getCashbooksForUser(
 
     if (assignedIds.length === 0) return [];
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("cashbooks")
       .select("*")
       .in("id", assignedIds)
