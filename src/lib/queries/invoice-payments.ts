@@ -25,8 +25,24 @@ export async function createInvoicePayment(
   const validated = invoicePaymentSchema.parse(values);
   const supabase = await createClient();
 
+  // invoice_payments has its own company_id / branch_id columns (RLS keys
+  // off them). Inherit them from the parent invoice — leaving them NULL
+  // makes the WITH CHECK policy fail with "new row violates row-level
+  // security policy for table invoice_payments".
+  const { data: invoice, error: invErr } = await supabase
+    .from("invoices")
+    .select("company_id, branch_id")
+    .eq("id", values.invoice_id)
+    .single();
+
+  if (invErr || !invoice) {
+    return { error: invErr?.message || "Invoice not found" };
+  }
+
   const { error } = await supabase.from("invoice_payments").insert({
     invoice_id: values.invoice_id,
+    company_id: invoice.company_id,
+    branch_id: invoice.branch_id,
     payment_mode: validated.payment_mode,
     amount: validated.amount,
     reference_number: validated.reference_number || null,
@@ -37,5 +53,6 @@ export async function createInvoicePayment(
 
   if (error) return { error: error.message };
   revalidatePath(`/invoices`);
+  revalidatePath(`/invoices/${values.invoice_id}`);
   return { success: true };
 }
