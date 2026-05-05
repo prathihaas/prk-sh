@@ -111,11 +111,14 @@ export async function getCashbooksForUser(
 
   const isCashierLevel = userHierarchyLevel >= 5;
   if (isCashierLevel) {
-    // Use the admin client for both lookups: the cashbook RLS policy filters
-    // by the caller's accessible branches, so a cashier whose admin assigned
-    // them cashbooks across two branches in the same company would only see
-    // the one matching their branch scope. The assignment config is the
-    // authoritative gate — admin granted it, we honour it.
+    // Cashiers issue receipts in cash, UPI, bank transfer, etc., so they
+    // need to see BOTH their assigned cash/petty books AND every active
+    // bank account of the company (banks are company-wide; the assignment
+    // map only gates cash/petty books).
+    //
+    // Use the admin client for the cash/petty lookup because the cashbook
+    // RLS filters by branch — an assigned book at a different branch would
+    // otherwise be hidden. The assignment config is the authoritative gate.
     const { supabaseAdmin } = await import("@/lib/supabase/admin");
 
     const { data: config } = await supabaseAdmin
@@ -128,17 +131,36 @@ export async function getCashbooksForUser(
     const assignments = parseCashierCashbookAssignments(config?.config_value);
     const assignedIds = assignments[userId] ?? [];
 
-    if (assignedIds.length === 0) return [];
+    // Always pull bank cashbooks for the company unless caller asked for
+    // cash-only explicitly. (typeFilter here is "cash" | null — "bank"
+    // returned earlier.)
+    const wantCash = typeFilter !== null ? typeFilter === "cash" : true;
+    const wantBanks = typeFilter !== "cash";
 
-    const { data, error } = await supabaseAdmin
-      .from("cashbooks")
-      .select("*")
-      .in("id", assignedIds)
-      .eq("company_id", companyId)
-      .in("type", ["main", "petty"]);
+    const merged: Record<string, unknown>[] = [];
 
-    if (error) throw error;
-    return data || [];
+    if (wantCash && assignedIds.length > 0) {
+      const { data, error } = await supabaseAdmin
+        .from("cashbooks")
+        .select("*")
+        .in("id", assignedIds)
+        .eq("company_id", companyId)
+        .in("type", ["main", "petty"]);
+      if (error) throw error;
+      if (data) merged.push(...data);
+    }
+
+    if (wantBanks) {
+      const { data, error } = await supabaseAdmin
+        .from("cashbooks")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("type", "bank");
+      if (error) throw error;
+      if (data) merged.push(...data);
+    }
+
+    return merged;
   }
 
   return getCashbooks(companyId, branchId, typeFilter ?? null);
