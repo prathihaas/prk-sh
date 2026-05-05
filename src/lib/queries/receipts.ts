@@ -12,7 +12,7 @@ import { resolveOrCreateCashbookDay } from "@/lib/queries/cashbook-days";
 export async function getReceipts(
   companyId: string,
   branchId?: string | null,
-  filters?: { payment_mode?: string; status?: string }
+  filters?: { payment_mode?: string; status?: string; receipt_type?: string }
 ) {
   const supabase = await createClient();
   let query = supabase
@@ -32,6 +32,9 @@ export async function getReceipts(
   }
   if (filters?.payment_mode) {
     query = query.eq("payment_mode", filters.payment_mode);
+  }
+  if (filters?.receipt_type) {
+    query = query.eq("receipt_type", filters.receipt_type);
   }
   if (filters?.status === "voided") {
     query = query.eq("is_voided", true);
@@ -207,6 +210,8 @@ export async function createReceipt(
       party_name: validated.party_name,
       customer_id: validated.customer_id || null,
       utr_number: validated.utr_number ?? null,
+      ro_number: validated.ro_number ?? null,
+      receipt_type: validated.receipt_type ?? null,
       receipt_number: "PENDING", // DB trigger generates this
       receipt_hash: "PENDING", // DB trigger generates this
       created_by: values.created_by,

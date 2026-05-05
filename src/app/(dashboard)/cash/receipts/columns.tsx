@@ -25,9 +25,21 @@ export type ReceiptRow = {
   narration: string;
   is_voided: boolean;
   created_at: string;
+  ro_number?: string | null;
+  receipt_type?: string | null;
+  utr_number?: string | null;
   /** Receipt date — the cashbook_day this transaction was posted into. */
   day?: { date: string } | null;
   creator?: { id: string; full_name: string | null; email: string | null } | null;
+};
+
+const RECEIPT_TYPE_LABELS: Record<string, string> = {
+  new_car: "New Car",
+  used_car: "Used Car",
+  service: "Service",
+  bodyshop: "Bodyshop",
+  insurance_renewal: "Insurance Renewal",
+  counter_sales: "Counter Sales",
 };
 
 export const receiptColumns: ColumnDef<ReceiptRow>[] = [
@@ -115,6 +127,26 @@ export const receiptColumns: ColumnDef<ReceiptRow>[] = [
         </span>
       );
     },
+  },
+  {
+    accessorKey: "receipt_type",
+    header: "Type",
+    cell: ({ row }) => {
+      const t = row.original.receipt_type;
+      if (!t) return <span className="text-muted-foreground text-sm">—</span>;
+      return (
+        <span className="text-sm">{RECEIPT_TYPE_LABELS[t] || t}</span>
+      );
+    },
+  },
+  {
+    accessorKey: "ro_number",
+    header: "R/O #",
+    cell: ({ row }) => (
+      <span className="font-mono text-xs text-muted-foreground">
+        {row.original.ro_number || "—"}
+      </span>
+    ),
   },
   {
     accessorKey: "narration",

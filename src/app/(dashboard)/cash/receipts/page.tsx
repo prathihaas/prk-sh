@@ -18,16 +18,28 @@ const RECEIPT_EXPORT_COLUMNS = [
   { key: "party_name", header: "Received From", width: 28 },
   { key: "amount", header: "Amount (INR)", width: 16, format: "currency" as const },
   { key: "payment_mode", header: "Payment Mode", width: 16 },
+  { key: "receipt_type_label", header: "Receipt Type", width: 18 },
+  { key: "ro_number", header: "R/O Number", width: 14 },
+  { key: "utr_number", header: "UTR / Ref", width: 20 },
   { key: "narration", header: "Narration", width: 45 },
   { key: "cashbook_name", header: "Cashbook", width: 22 },
   { key: "created_by_name", header: "Processed By", width: 24 },
   { key: "status_label", header: "Status", width: 12 },
 ];
 
+const RECEIPT_TYPE_LABELS: Record<string, string> = {
+  new_car: "New Car",
+  used_car: "Used Car",
+  service: "Service",
+  bodyshop: "Bodyshop",
+  insurance_renewal: "Insurance Renewal",
+  counter_sales: "Counter Sales",
+};
+
 export default async function ReceiptsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ payment_mode?: string; status?: string }>;
+  searchParams: Promise<{ payment_mode?: string; status?: string; receipt_type?: string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -62,6 +74,7 @@ export default async function ReceiptsPage({
   const receipts = await getReceipts(companyId, branchId, {
     payment_mode: params.payment_mode,
     status: params.status,
+    receipt_type: params.receipt_type,
   });
 
   const canCreate = permissions.has(PERMISSIONS.CASHBOOK_CREATE_TXN);
@@ -71,12 +84,14 @@ export default async function ReceiptsPage({
     const creator = r.creator as { full_name?: string } | null;
     const cashbook = r.cashbook as { name?: string } | null;
     const day = r.day as { date?: string } | null;
+    const rtype = r.receipt_type as string | null | undefined;
     return {
       ...r,
       receipt_date: day?.date || "",
       created_by_name: creator?.full_name || "",
       cashbook_name: cashbook?.name || "",
       status_label: r.is_voided ? "Voided" : "Active",
+      receipt_type_label: rtype ? RECEIPT_TYPE_LABELS[rtype] || rtype : "",
     };
   });
 
@@ -113,6 +128,18 @@ export default async function ReceiptsPage({
               { value: "bank_transfer", label: "Bank Transfer" },
               { value: "card", label: "Card" },
               { value: "finance", label: "Finance" },
+            ],
+          },
+          {
+            key: "receipt_type",
+            label: "Receipt Type",
+            options: [
+              { value: "new_car", label: "New Car" },
+              { value: "used_car", label: "Used Car" },
+              { value: "service", label: "Service" },
+              { value: "bodyshop", label: "Bodyshop" },
+              { value: "insurance_renewal", label: "Insurance Renewal" },
+              { value: "counter_sales", label: "Counter Sales" },
             ],
           },
           {

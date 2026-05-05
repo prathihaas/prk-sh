@@ -3,6 +3,18 @@ import { z } from "zod";
 /** Payment modes that require a UTR / bank reference number. */
 export const UTR_REQUIRED_MODES = ["upi", "bank_transfer", "card", "finance"] as const;
 
+/** Business categories shown in the Receipt Type dropdown. */
+export const RECEIPT_TYPES = [
+  { value: "new_car", label: "New Car" },
+  { value: "used_car", label: "Used Car" },
+  { value: "service", label: "Service" },
+  { value: "bodyshop", label: "Bodyshop" },
+  { value: "insurance_renewal", label: "Insurance Renewal" },
+  { value: "counter_sales", label: "Counter Sales" },
+] as const;
+
+export type ReceiptType = (typeof RECEIPT_TYPES)[number]["value"];
+
 export const receiptSchema = z.object({
   cashbook_id: z.string().min(1, "Select a cashbook"),
   date: z.string().min(1, "Date is required"),
@@ -24,6 +36,22 @@ export const receiptSchema = z.object({
    * form-input type stays simple for react-hook-form).
    */
   utr_number: z.string().trim().max(64).optional(),
+  /**
+   * Repair Order number (from workshop DMS). Optional; multiple receipts
+   * may reference the same RO. Free text up to 64 chars.
+   */
+  ro_number: z.string().trim().max(64).optional(),
+  /** Business category — see RECEIPT_TYPES. */
+  receipt_type: z
+    .enum([
+      "new_car",
+      "used_car",
+      "service",
+      "bodyshop",
+      "insurance_renewal",
+      "counter_sales",
+    ])
+    .optional(),
 });
 
 export type ReceiptFormValues = z.infer<typeof receiptSchema>;

@@ -6,7 +6,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Loader2, IndianRupee, CheckCircle2 } from "lucide-react";
-import { receiptSchema, validateUtrForMode, type ReceiptFormValues } from "@/lib/validators/receipt";
+import { receiptSchema, validateUtrForMode, RECEIPT_TYPES, type ReceiptFormValues } from "@/lib/validators/receipt";
 import { createReceipt } from "@/lib/queries/receipts";
 import { amountToIndianWords } from "@/lib/utils/number-to-words";
 import { formatINR } from "@/components/shared/currency-display";
@@ -92,6 +92,8 @@ export function ReceiptForm({
       payment_mode: "cash",
       narration: "",
       utr_number: "",
+      ro_number: "",
+      receipt_type: undefined,
     },
   });
 
@@ -336,6 +338,55 @@ export function ReceiptForm({
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Receipt Type + R/O Number — dealership categorisation */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="receipt_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Receipt Type</FormLabel>
+                    <Select
+                      onValueChange={(val) => field.onChange(val || undefined)}
+                      value={field.value ?? ""}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {RECEIPT_TYPES.map((t) => (
+                          <SelectItem key={t.value} value={t.value}>
+                            {t.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="ro_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>R/O Number</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Repair Order # (if applicable)"
+                        autoComplete="off"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -20,6 +20,8 @@ interface PrintReceiptProps {
     void_reason?: string | null;
     voided_at?: string | null;
     utr_number?: string | null;
+    ro_number?: string | null;
+    receipt_type?: string | null;
     creator?: { full_name?: string | null } | null;
     /** The cashbook_day this receipt was posted into — the canonical "receipt date". */
     day?: { date: string } | null;
@@ -64,6 +66,18 @@ export function PrintReceipt({
   const hashShort = transaction.receipt_hash
     ? transaction.receipt_hash.substring(0, 16) + "..."
     : "N/A";
+
+  const RECEIPT_TYPE_LABELS: Record<string, string> = {
+    new_car: "New Car",
+    used_car: "Used Car",
+    service: "Service",
+    bodyshop: "Bodyshop",
+    insurance_renewal: "Insurance Renewal",
+    counter_sales: "Counter Sales",
+  };
+  const receiptTypeLabel = transaction.receipt_type
+    ? RECEIPT_TYPE_LABELS[transaction.receipt_type] || transaction.receipt_type
+    : null;
 
   return (
     <>
@@ -168,6 +182,18 @@ export function PrintReceipt({
                 <span className="font-semibold">Receipt No:</span>{" "}
                 <span className="font-mono">{transaction.receipt_number}</span>
               </p>
+              {receiptTypeLabel && (
+                <p className="text-sm mt-1">
+                  <span className="font-semibold">Type:</span>{" "}
+                  <span>{receiptTypeLabel}</span>
+                </p>
+              )}
+              {transaction.ro_number && (
+                <p className="text-sm mt-1">
+                  <span className="font-semibold">R/O No:</span>{" "}
+                  <span className="font-mono">{transaction.ro_number}</span>
+                </p>
+              )}
               {transaction.utr_number && (
                 <p className="text-sm mt-1">
                   <span className="font-semibold">UTR / Ref:</span>{" "}
