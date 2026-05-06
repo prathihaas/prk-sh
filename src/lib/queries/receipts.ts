@@ -209,8 +209,10 @@ export async function createReceipt(
       narration: validated.narration,
       party_name: validated.party_name,
       customer_id: validated.customer_id || null,
-      utr_number: validated.utr_number ?? null,
-      ro_number: validated.ro_number ?? null,
+      // Treat empty strings as null so partial unique indexes (utr_number)
+      // skip the row instead of clashing on '' across cash/cheque receipts.
+      utr_number: validated.utr_number?.trim() ? validated.utr_number.trim() : null,
+      ro_number: validated.ro_number?.trim() ? validated.ro_number.trim() : null,
       receipt_type: validated.receipt_type ?? null,
       receipt_number: "PENDING", // DB trigger generates this
       receipt_hash: "PENDING", // DB trigger generates this
