@@ -128,7 +128,38 @@ export async function approveCashbookTransfer(
     return { error: `Transfer is already ${transfer.status}.` };
   }
 
-  // 2. Resolve cashbook days for BOTH cashbooks — auto-creates for bank accounts
+  // 2. Look up each cashbook's own branch_id. cashbook_transactions.branch_id
+  //    is NOT NULL, and the transfer-level branch can be NULL when one of
+  //    the cashbooks is a company-wide bank account. Each leg therefore
+  //    needs to carry the branch of *its own* cashbook; if a cashbook has
+  //    no branch (company-level), fall back to the other side's branch,
+  //    and finally to transfer.branch_id.
+  const { data: cashbookRows } = await supabase
+    .from("cashbooks")
+    .select("id, branch_id")
+    .in("id", [transfer.from_cashbook_id, transfer.to_cashbook_id]);
+
+  const cbBranch = new Map<string, string | null>();
+  for (const row of (cashbookRows || []) as Array<{ id: string; branch_id: string | null }>) {
+    cbBranch.set(row.id, row.branch_id);
+  }
+  const fromBranchId =
+    cbBranch.get(transfer.from_cashbook_id) ??
+    cbBranch.get(transfer.to_cashbook_id) ??
+    transfer.branch_id;
+  const toBranchId =
+    cbBranch.get(transfer.to_cashbook_id) ??
+    cbBranch.get(transfer.from_cashbook_id) ??
+    transfer.branch_id;
+
+  if (!fromBranchId || !toBranchId) {
+    return {
+      error:
+        "Both cashbooks in this transfer have no branch assigned. Assign at least one of them to a branch and try again.",
+    };
+  }
+
+  // 3. Resolve cashbook days for BOTH cashbooks — auto-creates for bank accounts
   const [fromDayResult, toDayResult] = await Promise.all([
     resolveOrCreateCashbookDay(transfer.from_cashbook_id, transfer.transfer_date),
     resolveOrCreateCashbookDay(transfer.to_cashbook_id, transfer.transfer_date),
@@ -145,14 +176,14 @@ export async function approveCashbookTransfer(
   const toDayId = toDayResult.day.id;
   const narration = `Cashbook Transfer: ${transfer.description}`;
 
-  // 3. Create DEBIT transaction in the source cashbook
+  // 4. Create DEBIT transaction in the source cashbook
   const { data: fromTxn, error: fromTxnErr } = await supabase
     .from("cashbook_transactions")
     .insert({
       cashbook_id: transfer.from_cashbook_id,
       cashbook_day_id: fromDayId,
       company_id: transfer.company_id,
-      branch_id: transfer.branch_id,
+      branch_id: fromBranchId,
       financial_year_id: transfer.financial_year_id,
       txn_type: "payment",
       amount: transfer.amount,
@@ -170,14 +201,14 @@ export async function approveCashbookTransfer(
 
   if (fromTxnErr) return { error: `Failed to create debit: ${fromTxnErr.message}` };
 
-  // 4. Create CREDIT transaction in the destination cashbook
+  // 5. Create CREDIT transaction in the destination cashbook
   const { data: toTxn, error: toTxnErr } = await supabase
     .from("cashbook_transactions")
     .insert({
       cashbook_id: transfer.to_cashbook_id,
       cashbook_day_id: toDayId,
       company_id: transfer.company_id,
-      branch_id: transfer.branch_id,
+      branch_id: toBranchId,
       financial_year_id: transfer.financial_year_id,
       txn_type: "receipt",
       amount: transfer.amount,
