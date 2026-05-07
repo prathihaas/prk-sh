@@ -10,9 +10,14 @@
  */
 
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getTelegramBotToken } from "@/lib/queries/company-configs";
 import { answerCallbackQuery, sendTelegramMessage } from "@/lib/utils/telegram-notify";
+
+// Telegram POSTs here with no app-side auth session, so an auth-scoped
+// supabase client is anonymous and RLS blocks every read/write. We use
+// the admin client throughout this route — the action is gated by the
+// chat_id → user_profile lookup plus the eligibility helper.
 
 // Telegram update shape (minimal — only what we need)
 interface TelegramUpdate {
@@ -55,7 +60,7 @@ export async function POST(req: NextRequest) {
 
   const [, action, expenseId] = match;
 
-  const supabase = await createClient();
+  const supabase = supabaseAdmin;
 
   // ── Find the user by chat ID ─────────────────────────────────────────────
   const { data: profile } = await supabase
