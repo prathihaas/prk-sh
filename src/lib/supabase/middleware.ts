@@ -62,14 +62,26 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
+  // Public webhook endpoints called by external services (Telegram, etc.)
+  // never have a Supabase session — they must NOT be redirected to /login.
+  // Returning early skips the auth-getUser refresh (which would cookie-mutate
+  // the response) and the redirect.
+  const path = request.nextUrl.pathname;
+  const isPublicWebhook =
+    path.startsWith("/api/telegram/webhook") ||
+    path.startsWith("/api/webhooks/");
+  if (isPublicWebhook) {
+    return supabaseResponse;
+  }
+
   // Refresh the session — this is critical for keeping the JWT alive
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   // Unauthenticated users trying to access protected routes → redirect to login
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/login");
-  const isCallbackRoute = request.nextUrl.pathname.startsWith("/auth/callback");
+  const isAuthRoute = path.startsWith("/login");
+  const isCallbackRoute = path.startsWith("/auth/callback");
 
   if (!user && !isAuthRoute && !isCallbackRoute) {
     const url = request.nextUrl.clone();
