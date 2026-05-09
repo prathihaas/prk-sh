@@ -10,6 +10,7 @@
  */
 
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getTelegramBotToken } from "@/lib/queries/company-configs";
 import { answerCallbackQuery, sendTelegramMessage } from "@/lib/utils/telegram-notify";
@@ -177,6 +178,15 @@ export async function POST(req: NextRequest) {
       return new Response("OK", { status: 200 });
     }
 
+    // Bust the Next.js cache for the pages that show this expense's
+    // status, otherwise the webapp keeps showing 'Submitted' until the
+    // cache expires even though the DB row is now approved.
+    revalidatePath("/expenses");
+    revalidatePath(`/expenses/${expenseId}`);
+    revalidatePath(`/expenses/${expenseId}/approve`);
+    revalidatePath("/approvals");
+    revalidatePath("/dashboard");
+
     await sendTelegramMessage(
       botToken,
       chatId,
@@ -198,6 +208,12 @@ export async function POST(req: NextRequest) {
       await sendTelegramMessage(botToken, chatId, `❌ Failed to reject: ${error.message}`);
       return new Response("OK", { status: 200 });
     }
+
+    revalidatePath("/expenses");
+    revalidatePath(`/expenses/${expenseId}`);
+    revalidatePath(`/expenses/${expenseId}/approve`);
+    revalidatePath("/approvals");
+    revalidatePath("/dashboard");
 
     await sendTelegramMessage(
       botToken,
