@@ -1,7 +1,20 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UserProfile, UserAssignment } from "@/types/auth";
 
 const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
+
+/**
+ * React cache() dedupes identical calls within a single request render.
+ * The two heavy auth helpers below are called from every server layout +
+ * page (often 4–5 times per navigation) which was the second-largest IO
+ * source in pg_stat_statements. cache() collapses those to one DB hit per
+ * request without changing any callsites.
+ *
+ * The cache key is `(supabase, userId)` — react.cache() compares args by
+ * reference equality, and Next.js builds a fresh `supabase` per request,
+ * so the cache scope is correctly per-request.
+ */
 
 /**
  * Fetch user profile from user_profiles table
@@ -25,9 +38,12 @@ export async function getUserProfile(
 }
 
 /**
- * Fetch all active assignments for a user with joined role data
+ * Fetch all active assignments for a user with joined role data.
+ * Memoised per-request via react.cache so a single page render only hits
+ * the DB once even if multiple layouts/components ask for it.
  */
-export async function getUserAssignments(
+export const getUserAssignments = cache(_getUserAssignments);
+async function _getUserAssignments(
   supabase: SupabaseClient,
   userId: string
 ): Promise<UserAssignment[]> {
@@ -81,8 +97,10 @@ export async function getUserAssignments(
  * Build a Set of "module:action" permission strings for a user.
  * Merges role-based permissions with per-user permission overrides stored in
  * company_configs (config_key = "user_permission_overrides").
+ * Memoised per-request via react.cache.
  */
-export async function getUserPermissions(
+export const getUserPermissions = cache(_getUserPermissions);
+async function _getUserPermissions(
   supabase: SupabaseClient,
   userId: string
 ): Promise<Set<string>> {
@@ -180,9 +198,11 @@ export function getUserGroupId(assignments: UserAssignment[]): string | null {
 
 /**
  * Get accessible company IDs from assignments
- * If any assignment has company_id = null, user has access to all companies
+ * If any assignment has company_id = null, user has access to all companies.
+ * Memoised per-request via react.cache.
  */
-export async function getAccessibleCompanies(
+export const getAccessibleCompanies = cache(_getAccessibleCompanies);
+async function _getAccessibleCompanies(
   supabase: SupabaseClient,
   assignments: UserAssignment[]
 ): Promise<{ id: string; name: string; code: string }[]> {
