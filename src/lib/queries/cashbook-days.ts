@@ -19,14 +19,18 @@ export async function resolveOrCreateCashbookDay(
   cashbookId: string,
   date: string
 ): Promise<{ day: { id: string } } | { error: string }> {
-  const supabase = await createClient();
-
-  // Look up the cashbook type so we can decide which path to take
-  const { data: cashbook, error: cashbookError } = await supabase
+  // Use admin for the cashbook lookup. A cashier may legitimately need to
+  // post to a bank cashbook at a branch they aren't directly assigned to —
+  // the dropdown already includes those (admin-fetched), and the calling
+  // server action has already permission-checked the user. Going through
+  // the auth-scoped client here would make the cashier's RLS hide bank
+  // cashbooks at other branches, producing a confusing "Cashbook not found"
+  // even though the user just selected the cashbook from the dropdown.
+  const { data: cashbook, error: cashbookError } = await supabaseAdmin
     .from("cashbooks")
-    .select("id, type, company_id, branch_id")
+    .select("id, type, company_id, branch_id, opening_balance")
     .eq("id", cashbookId)
-    .single();
+    .maybeSingle();
 
   if (cashbookError || !cashbook) {
     return { error: "Cashbook not found." };
@@ -86,14 +90,17 @@ export async function resolveOrCreateCashbookDay(
     return { day: newDay };
   }
 
-  // Cash / petty cashbooks: require a manually opened day
-  const { data: openDay, error: dayError } = await supabase
+  // Cash / petty cashbooks: require a manually opened day. Same rationale
+  // as above for using admin — the cashier may hold cash books at branches
+  // they aren't directly assigned to, and we've already validated access
+  // upstream.
+  const { data: openDay, error: dayError } = await supabaseAdmin
     .from("cashbook_days")
     .select("id")
     .eq("cashbook_id", cashbookId)
     .eq("date", date)
     .in("status", ["open", "reopened"])
-    .single();
+    .maybeSingle();
 
   if (dayError || !openDay) {
     return {
