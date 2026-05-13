@@ -267,10 +267,16 @@ export async function updateDenominationSetting(companyId: string, enabled: bool
 
 // ── Telegram Bot Config ────────────────────────────────────────────────────
 
-/** Get the Telegram bot token for a company */
+/** Get the Telegram bot token for a company.
+ *
+ * Uses the admin client because this is called from the Telegram webhook
+ * (no app-side auth session — RLS would block the read and the handler
+ * would silently 200-OK without doing anything). The bot token isn't a
+ * user-specific secret; it's the same value regardless of caller.
+ */
 export async function getTelegramBotToken(companyId: string): Promise<string | null> {
-  const supabase = await createClient();
-  const { data } = await supabase
+  const { supabaseAdmin } = await import("@/lib/supabase/admin");
+  const { data } = await supabaseAdmin
     .from("company_configs")
     .select("config_value")
     .eq("company_id", companyId)
