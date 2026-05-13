@@ -137,16 +137,17 @@ export function ReceiptForm({
         require_otp_approval: requireOtpApproval && !!approvalChain,
       });
 
-      if (result.error) {
+      if ("error" in result && result.error) {
         toast.error(result.error);
         return;
       }
 
       toast.success("Receipt created successfully");
 
+      const receiptId = "receiptId" in result ? result.receiptId : null;
       // If OTP approval is required and we have an approval chain, start OTP flow
-      if (requireOtpApproval && approvalChain && result.receiptId) {
-        setCreatedReceiptId(result.receiptId);
+      if (requireOtpApproval && approvalChain && receiptId) {
+        setCreatedReceiptId(receiptId);
         // Find the first step with a configured user
         const firstStep = OTP_STEPS.find((s) => approvalChain[s]);
         if (firstStep) {

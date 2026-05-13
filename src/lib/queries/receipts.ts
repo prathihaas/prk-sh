@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { receiptSchema, validateUtrForMode, type ReceiptFormValues } from "@/lib/validators/receipt";
 import { getCashLimits } from "@/lib/queries/company-configs";
 import { resolveOrCreateCashbookDay } from "@/lib/queries/cashbook-days";
@@ -194,8 +195,16 @@ export async function createReceipt(
   if ("error" in dayResult) return dayResult;
   const day = dayResult.day;
 
-  // Insert the receipt transaction, returning the ID for OTP approval flow
-  const { data: inserted, error } = await supabase
+  // Insert the receipt transaction via admin. Eligibility is already
+  // gated by:
+  //   - createReceipt's own scope/permission checks above
+  //   - the cashbook dropdown (admin-filtered to the user's cashbooks + all
+  //     banks of the company)
+  //   - resolveOrCreateCashbookDay verifying the cashbook is real
+  // Re-gating with RLS at the insert layer broke cashier-issued bank/UPI
+  // receipts because bank cashbooks live at a branch the cashier isn't
+  // directly scoped to.
+  const { data: inserted, error } = await supabaseAdmin
     .from("cashbook_transactions")
     .insert({
       cashbook_id: validated.cashbook_id,
