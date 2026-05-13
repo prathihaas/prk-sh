@@ -2,7 +2,8 @@
   "crons": [
     {
       "path": "/api/cron/fraud-check",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }
+
